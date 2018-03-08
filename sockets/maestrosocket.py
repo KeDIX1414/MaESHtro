@@ -1,5 +1,6 @@
 import socket
 import select
+import sys
 
 class MaestroSocket:
 	def __init__(self, ip, port, server=False):
@@ -8,26 +9,32 @@ class MaestroSocket:
 		if server:
 			self.sock.bind((ip, port))
 			self.sock.listen(1)
-			self.client_list = []
-			self.client_list.append(self.sock)
+			self.client_list = [self.sock]
+		else:
+			try:
+				self.sock.connect(('10.0.0.105', 10004))
+				print('You have been connected to the remote host.')
+				self.socket_list = [self.sock, sys.stdin]
+			except Exception as e:
+				print(str(e))
+				print('You could not connect to the server.')
+				sys.exit()
 
-	def maestro_connect(self, host, port):
-		self.sock.connect((host, port))
-
-	def maestro_accept(self):
-		self.connection, self.client_address = self.sock.accept()
-
-	def maestro_close(self):
-		self.connection.close()
-
-	def new_close(self):
-		self.sock.close()
-
-	def maestro_send(self, msg, msglen):
-		self.sock.send(msg)
-		data = self.sock.recv(1024)
-		print(data)
-
+	def client_loop(self):
+		while 1:
+			ready_to_read,ready_to_write,in_error = select.select(self.socket_list , [], [])
+			for sock in ready_to_read:
+				if sock == self.sock:
+					data = sock.recv(1024)
+					if not data:
+						print('You have been disconnected from the server')
+						sys.exit()
+					else:
+						print(data)
+				else:
+					msg = sys.stdin.readline()
+					self.sock.send(msg.encode())
+					
 	def server_loop(self):
 		while 1:
 			ready_to_read,ready_to_write,in_error = select.select(self.client_list,[],[],0)
@@ -41,20 +48,25 @@ class MaestroSocket:
 					try:
 						data = sock.recv(1024)
 						if data:
-							print(data)
+							print("here")
+							self.broadcast(sock, data)
 						else:
 							sock.close()
 							self.client_list.remove(sock)
 							print("A client has left.")
-					except:
+					except Exception as e:
+						print(str(e))
 						print("Client offline...")
 
-	def maestro_server_receive(self):
-		while True:
-			data = self.connection.recv(1024)
-			if not data: break
-			print('received data' + str(data))
-			self.connection.send('received'.encode())
-		self.connection.close()
+	def broadcast(self, sock, data):
+		for socket in self.client_list:
+			if socket != sock and socket != self.sock:
+				try:
+					socket.send(data)
+				except:
+					if socket in self.client_list:
+						self.client_list.remove(socket)
+
+
 
 
