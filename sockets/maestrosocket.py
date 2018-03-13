@@ -1,19 +1,23 @@
 import socket
 import select
 import sys
+from user import User
 
 class MaestroSocket:
-	def __init__(self, ip, port, server=False):
+	def __init__(self, ip, port, server=False, username="KeDIX1414"):
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		# self.sock.setblocking(0)
 		if server:
 			self.sock.bind((ip, port))
 			self.sock.listen(1)
+			print(self.sock.getsockname())
 			self.client_list = [self.sock]
 		else:
 			try:
-				self.sock.connect(('10.0.0.105', 10004))
+				self.sock.connect(('0.0.0.0', 20001))
 				print('You have been connected to the remote host.')
+				msg = "Username:" + username
+				self.sock.send(msg.encode())
 				self.socket_list = [self.sock, sys.stdin]
 			except Exception as e:
 				print(str(e))
@@ -30,7 +34,7 @@ class MaestroSocket:
 						print('You have been disconnected from the server')
 						sys.exit()
 					else:
-						print(data)
+						print(data.decode())
 				else:
 					msg = sys.stdin.readline()
 					self.sock.send(msg.encode())
@@ -40,7 +44,6 @@ class MaestroSocket:
 			ready_to_read,ready_to_write,in_error = select.select(self.client_list,[],[],0)
 			for sock in ready_to_read:
 				if sock is self.sock:
-					print("here")
 					connection, addr = self.sock.accept()
 					self.client_list.append(connection)
 					print("I have received a new connection")
@@ -48,7 +51,7 @@ class MaestroSocket:
 					try:
 						data = sock.recv(1024)
 						if data:
-							print("here")
+							message = data.decode()
 							self.broadcast(sock, data)
 						else:
 							sock.close()

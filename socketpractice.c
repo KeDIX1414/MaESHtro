@@ -54,10 +54,10 @@ main (void)
   iph->ip_ttl = 255;
   iph->ip_p = 6;
   iph->ip_sum = 0;		/* set it to 0 before computing the actual checksum later */
-  iph->ip_src.s_addr = inet_addr ("1.2.3.4");/* SYN's can be blindly spoofed */
+  iph->ip_src.s_addr = inet_addr ("10.180.223.161");/* SYN's can be blindly spoofed */
   iph->ip_dst.s_addr = sin.sin_addr.s_addr;
   tcph->th_sport = htons (1234);	/* arbitrary port */
-  tcph->th_dport = htons (P);
+  tcph->th_dport = htons (20001);
   tcph->th_seq = random ();/* in a SYN packet, the sequence is a random */
   tcph->th_ack = 0;/* number, and the ack sequence is 0 in the 1st packet */
   tcph->th_x2 = 0;
