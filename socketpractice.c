@@ -23,6 +23,8 @@ csum (unsigned short *buf, int nwords)
   return ~sum;
 }
 
+
+
 int 
 main (void)
 {
@@ -57,49 +59,44 @@ main (void)
   iph->ip_src.s_addr = inet_addr ("10.0.0.133");/* SYN's can be blindly spoofed */
   iph->ip_dst.s_addr = sin.sin_addr.s_addr;
 
-  tcph->th_sport = (u_short) htons (26);	/* arbitrary port */
-  tcph->th_dport = (u_short) htons (26);
-  tcph->th_seq = random ();/* in a SYN packet, the sequence is a random */
+  tcph->th_sport = (u_short) htons (80);	/* arbitrary port */
+  tcph->th_dport = (u_short) htons (80);
+  tcph->th_seq = random() % 65535;/* in a SYN packet, the sequence is a random */
   tcph->th_ack = 0;/* number, and the ack sequence is 0 in the 1st packet */
   tcph->th_x2 = 0;
   tcph->th_off = 5;		/* first and only tcp segment */
   tcph->th_flags = TH_SYN;	/* initial connection request */
-  tcph->th_win = (u_short) htonl (65535);	/* maximum allowed window size */
+  //tcph->th_win = (u_short) htonl (65535);	/* maximum allowed window size */
+  tcph->th_win = htons(65535);
   tcph->th_sum = 0;/* if you set a checksum to zero, your kernel's IP stack
 		      should fill in the correct checksum during transmission */
   tcph->th_urp = 0;
-  tcph->th_sum = 0;
+  tcph->th_sum = 25255;
 
   iph->ip_sum = csum ((unsigned short *) datagram, iph->ip_len >> 1);
 
   struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
-  printf("%d\n", test->th_sport);
+  printf("%d\n", (u_short) htonl (65535));
 
 /* finally, it is very advisable to do a IP_HDRINCL call, to make sure
    that the kernel knows the header is included in the data, and doesn't
    insert its own header into the packet before our data */
-
-  {				/* lets do it the ugly way.. */
-    int one = 1;
-    const int *val = &one;
-    if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
-      printf ("Warning: Cannot set HDRINCL!\n");
-  }
+		/* lets do it the ugly way.. */
+  int one = 1;
+  const int *val = &one;
+  if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
+    printf ("Warning: Cannot set HDRINCL!\n");
   int count = 0;
-  printf("%d\n", iph->ip_len);
-  while (count < 10)
-    {
-      if (sendto (s,		
-		  datagram,	
-		  iph->ip_len,	
-		  0,		
-		  (struct sockaddr *) &sin,	
-		  sizeof (sin)) < 0)		
-	printf ("error\n");
-      else
-	printf ("success. ");
+  printf("%d\n", tcph->th_win);
+  while (count < 10) {
+    if (sendto (s, datagram, iph->ip_len,	0, (struct sockaddr *) &sin, sizeof (sin)) < 0)		
+	    printf ("error\n");
+    else
+	    printf ("success. ");
+      sleep(2);
+      recv(s, datagram, sizeof(datagram), 0);
     count++;
-    }
+  }
 
   return 0;
 }
