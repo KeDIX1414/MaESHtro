@@ -57,6 +57,7 @@ struct tcphdr *get_tcp_header(const u_char *packet) {
     packet += linkhdrlen;
     packet += sizeof(struct ip);
     struct tcphdr *tcp_header = (struct tcphdr*) packet;
+    printf("%u\n", tcp_header->th_sum);
     return tcp_header;
 }
 
@@ -91,6 +92,7 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     memset (datagram, 0, 4096);    /* zero out the buffer */
     
     /* we'll now fill in the ip/tcp header values, see above for explanations */
+    uint16_t old_chksm = tcph->th_sum;
     iph->ip_hl = og_ip->ip_hl;
     iph->ip_v = og_ip->ip_v;
     iph->ip_tos = og_ip->ip_tos;
@@ -100,10 +102,11 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;        /* set it to 0 before computing the actual checksum later */
-    iph->ip_src.s_addr = og_ip->ip_src.s_addr;/* SYN's can be blindly spoofed */
-    iph->ip_dst.s_addr = og_ip->ip_dst.s_addr;
     
-    tcph->th_sport = (u_short) htons (10514);    /* arbitrary port */
+    iph->ip_src.s_addr = inet_addr("10.0.0.105");/* SYN's can be blindly spoofed */
+    iph->ip_dst.s_addr = inet_addr("172.217.15.100");
+    
+    tcph->th_sport = (u_short) htons (10515);    /* arbitrary port */
     tcph->th_dport = og_tcp->th_dport;
     tcph->th_seq = og_tcp->th_seq;/* in a SYN packet, the sequence is a random */
     tcph->th_ack = og_tcp->th_ack;/* number, and the ack sequence is 0 in the 1st packet */
@@ -112,15 +115,14 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     tcph->th_flags = og_tcp->th_flags;    /* initial connection request */
     //tcph->th_win = (u_short) htonl (65535);    /* maximum allowed window size */
     tcph->th_win = og_tcp->th_win;
-    tcph->th_sum = 0;/* if you set a checksum to zero, your kernel's IP stack
-                      should fill in the correct checksum during transmission */
     tcph->th_urp = og_tcp->th_urp;
-    tcph->th_sum = 10701;
+    tcph->th_sum = 10445;
     
     iph->ip_sum = csum ((unsigned short *) datagram, iph->ip_len >> 1);
     
     struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
     printf("%s\n", inet_ntoa(iph->ip_src));
+    printf("%s\n", inet_ntoa(iph->ip_dst));
 
     
     /* finally, it is very advisable to do a IP_HDRINCL call, to make sure
@@ -148,22 +150,6 @@ void handlePkt(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *pac
     struct ip *ip = get_ip_header(packet);
     struct tcphdr *tcp = get_tcp_header(packet);
     inject(ip, tcp);
-    /*ether_header_t *ether_pkt = (ether_header_t *) packet;
-    if(ntohs(ether_pkt->ether_type) == ETHERTYPE_IP) {
-        printf("found an ethernet ip packet\n");
-        printf("ethernet header source: %s\n", ether_ntoa((const struct ether_addr *)ether_pkt->ether_shost));
-        printf("ethernet header destination: %s\n", ether_ntoa((const struct ether_addr *)ether_pkt->ether_dhost));
-        // Figure out whether this is a packet leaving the mesh network or entering the mesh network
-        ip_header_t *header = get_ip_header(packet);
-    }
-    else if (ntohs(ether_pkt->ether_type) == ETHERTYPE_ARP || ntohs(ether_pkt->ether_type) == ETHERTYPE_REVARP) {
-        printf("Program won't handle arp or revarp\n");
-        return;
-    } else {
-        printf("This packet isn't ethernet\n");
-        get_ip_header(packet);`
-    }*/
-    //printf("ethernet header source: %s\n", ether_ntoa(const struct ether_addr *))
 }
 
 
@@ -200,7 +186,7 @@ int main(int argc, char **argv)
         printf("pcap_open_live(): %s\n",errbuf);
         exit(1);
     }
-    if (pcap_compile(descr, &fp, "src host 10.0.0.105 and dst host 172.217.15.100", 0, net) == -1) {
+    if (pcap_compile(descr, &fp, "src host 10.0.0.242 and dst host 10.0.0.105", 0, net) == -1) {
         fprintf(stderr, "Couldn't parse filter\n");
         exit(1);
     }
@@ -242,7 +228,7 @@ int main(int argc, char **argv)
     /*while (pcap_next_ex(descr, &hdr, &packet)) {
         handlePkt(hdr, packet);
     }*/
-    pcap_loop(descr, 1, handlePkt, 0 );
+    pcap_loop(descr, 20, handlePkt, 0 );
     pcap_close(descr);
     
     return 0;

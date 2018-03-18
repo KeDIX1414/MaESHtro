@@ -23,6 +23,42 @@ csum (unsigned short *buf, int nwords)
   return ~sum;
 }
 
+uint16_t tcp_checksum(const void *buff, size_t len, in_addr_t src_addr, in_addr_t dest_addr)
+ {
+         const uint16_t *buf=buff;
+         uint16_t *ip_src=(void *)&src_addr, *ip_dst=(void *)&dest_addr;
+         uint32_t sum;
+         size_t length=len;
+         // Calculate the sum                                            //
+         sum = 0;
+         while (len > 1)
+         {
+                 sum += *buf++;
+                 if (sum & 0x80000000)
+                         sum = (sum & 0xFFFF) + (sum >> 16);
+                 len -= 2;
+         }
+
+         if ( len & 1 )
+                 // Add the padding if the packet lenght is odd          //
+                 sum += *((uint8_t *)buf);
+
+         // Add the pseudo-header                                        //
+         sum += *(ip_src++);
+         sum += *ip_src;
+         sum += *(ip_dst++);
+         sum += *ip_dst;
+         sum += htons(IPPROTO_TCP);
+         sum += htons(length);
+
+         // Add the carries                                              //
+         while (sum >> 16)
+                 sum = (sum & 0xFFFF) + (sum >> 16);
+
+         // Return the one's complement of sum
+     printf("%d\n", (uint16_t)(~sum));
+         return ( (uint16_t)(~sum)  );
+}
 
 
 int 
@@ -46,7 +82,7 @@ main (void)
     sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
 
   memset (datagram, 0, 4096);	/* zero out the buffer */
-
+  uint16_t old_chksm =
 /* we'll now fill in the ip/tcp header values, see above for explanations */
   iph->ip_hl = 5;
   iph->ip_v = 4;
@@ -69,12 +105,12 @@ main (void)
   tcph->th_flags = TH_SYN;	/* initial connection request */
   //tcph->th_win = (u_short) htonl (65535);	/* maximum allowed window size */
   tcph->th_win = htons(65535);
-  tcph->th_sum = 0;/* if you set a checksum to zero, your kernel's IP stack
-		      should fill in the correct checksum during transmission */
   tcph->th_urp = 0;
-  tcph->th_sum = 25255;
+  tcph->th_sum = 10445;
+    //tcph->th_sum = 0;
 
   iph->ip_sum = csum ((unsigned short *) datagram, iph->ip_len >> 1);
+    tcp_checksum(tcph, 5, iph->ip_src.s_addr, iph->ip_dst.s_addr);
 
   struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
 
