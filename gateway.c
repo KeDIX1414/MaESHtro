@@ -19,30 +19,6 @@
 #define ETHER_SIZE 14
 int count = 0;
 
-typedef struct {
-    uint8_t  ver_ihl;  // 4 bits version and 4 bits internet header length
-    uint8_t  tos;
-    uint16_t total_length;
-    uint16_t id;
-    uint16_t flags_fo; // 3 bits flags and 13 bits fragment-offset
-    uint8_t  ttl;
-    uint8_t  protocol;
-    uint16_t checksum;
-    struct in_addr src_addr, dst_addr;
-} ip_header_t;
-
-typedef struct {
-    u_char type;
-    u_char code;
-    u_char checksum;
-} icmphdr_t;
-
-typedef struct {
-    u_char ether_dhost[ADDR_LEN_ETHER];
-    u_char ether_shost[ADDR_LEN_ETHER];
-    u_short ether_type;
-} ether_header_t;
-
 int linkhdrlen;
 pcap_t* descr;
 
@@ -94,9 +70,7 @@ uint16_t tcp_checksum(const void *buff, size_t len, in_addr_t src_addr, in_addr_
     
     // Add the pseudo-header                                        //
     sum += *(ip_src++);
-    printf("%d\n", sum);
     sum += *ip_src;
-    printf("%d\n", sum);
     sum += *(ip_dst++);
     sum += *ip_dst;
     sum += htons(IPPROTO_TCP);
@@ -105,11 +79,8 @@ uint16_t tcp_checksum(const void *buff, size_t len, in_addr_t src_addr, in_addr_
     // Add the carries                                              //
     while (sum >> 16) {
         sum = (sum & 0xFFFF) + (sum >> 16);
-        printf("%d\n", sum);
     }
     uint16_t final_sum = sum;
-    printf("%x\n", final_sum);
-    printf("%x\n", ~final_sum);
     
     // Return the one's complement of sum
     return ( (uint16_t)(~sum)  );
@@ -130,30 +101,29 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);/* you byte-order >1byte header values to network
                               byte order (not needed on big endian machines) */
-    sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
+    sin.sin_addr.s_addr = inet_addr ("172.217.15.68");
     
     memset (datagram, 0, 4096);    /* zero out the buffer */
     
     /* we'll now fill in the ip/tcp header values, see above for explanations */
-    uint16_t old_chksm = tcph->th_sum;
-    iph->ip_hl = og_ip->ip_hl;
+    iph->ip_hl = 5;
     iph->ip_v = og_ip->ip_v;
     iph->ip_tos = og_ip->ip_tos;
     iph->ip_len = sizeof (struct ip) + sizeof (struct tcphdr);    /* no payload */
     iph->ip_id = og_ip->ip_id;    /* the value doesn't matter here */
-    iph->ip_off = og_ip->ip_off;
+    iph->ip_off = 0;
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
     iph->ip_src.s_addr = inet_addr("10.0.0.105");/* SYN's can be blindly spoofed */
-    iph->ip_dst.s_addr = inet_addr("172.217.15.100");
+    iph->ip_dst.s_addr = inet_addr("172.217.15.68");
     
     tcph->th_sport = og_tcp->th_sport;    /* arbitrary port */
     tcph->th_dport = og_tcp->th_dport;
     tcph->th_seq = og_tcp->th_seq;/* in a SYN packet, the sequence is a random */
     tcph->th_ack = og_tcp->th_ack;/* number, and the ack sequence is 0 in the 1st packet */
     tcph->th_x2 = og_tcp->th_x2;
-    tcph->th_off = og_tcp->th_off;        /* first and only tcp segment */
+    tcph->th_off = 5;        /* first and only tcp segment */
     tcph->th_flags = og_tcp->th_flags;    /* initial connection request */
     //tcph->th_win = (u_short) htonl (65535);    /* maximum allowed window size */
     tcph->th_win = og_tcp->th_win;
@@ -164,8 +134,8 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     tcph->th_sum = tcp_checksum(tcph, 20, iph->ip_src.s_addr, iph->ip_dst.s_addr);
     
     struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
-    printf("%s\n", inet_ntoa(iph->ip_src));
-    printf("%s\n", inet_ntoa(iph->ip_dst));
+    printf("%x\n", tcph->th_seq);
+    printf("%d\n", tcph->th_win);
 
     
     /* finally, it is very advisable to do a IP_HDRINCL call, to make sure
@@ -177,7 +147,6 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
         printf ("Warning: Cannot set HDRINCL!\n");
     int count = 0;
-    printf("%d\n", tcph->th_win);
     if (sendto (s, datagram, iph->ip_len,    0, (struct sockaddr *) &sin, sizeof (sin)) < 0)
         printf ("error\n");
     else
@@ -229,7 +198,7 @@ int main(int argc, char **argv)
         printf("pcap_open_live(): %s\n",errbuf);
         exit(1);
     }
-    if (pcap_compile(descr, &fp, "src host 10.0.0.242 and dst host 10.0.0.105", 0, net) == -1) {
+    if (pcap_compile(descr, &fp, "src host 10.0.0.105 and dst host 172.217.15.100", 0, net) == -1) {
         fprintf(stderr, "Couldn't parse filter\n");
         exit(1);
     }
@@ -271,7 +240,7 @@ int main(int argc, char **argv)
     /*while (pcap_next_ex(descr, &hdr, &packet)) {
         handlePkt(hdr, packet);
     }*/
-    pcap_loop(descr, 20, handlePkt, 0 );
+    pcap_loop(descr, 1, handlePkt, 0 );
     pcap_close(descr);
     
     return 0;
