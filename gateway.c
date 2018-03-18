@@ -9,6 +9,8 @@
 #include <netinet/if_ether.h> /* includes net/ethernet.h */
 #include <netinet/ip.h>
 #include <string.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
 #define PORT 8080
 
 #define IP_HL(ip)               (((ip)->ver_ihl) & 0x0f)
@@ -45,28 +47,108 @@ int linkhdrlen;
 pcap_t* descr;
 
 
-ip_header_t *get_ip_header(const u_char *packet) {
+struct ip *get_ip_header(const u_char *packet) {
     packet += linkhdrlen;
-    ip_header_t *ip_header = (ip_header_t*) packet;
-    int size_ip = IP_HL(ip_header)*4;
-    if (size_ip < 20) {
-        printf("Invalid IP header length: %u bytes\n", size_ip);
-        return NULL;
-    }
-    printf("The version is %d\n", ip_header->ver_ihl >> 4);
-    printf("Source: %s\n", inet_ntoa(ip_header->src_addr));
-    printf("Destination: %s\n", inet_ntoa(ip_header->dst_addr));
-    /*if (pcap_inject(descr, packet, pkthdr->caplen) == -1) {
-        printf("Injecting packet failed\n");
-    }*/
+    struct ip *ip_header = (struct ip*) packet;
     return ip_header;
 }
+
+struct tcphdr *get_tcp_header(const u_char *packet) {
+    packet += linkhdrlen;
+    packet += sizeof(struct ip);
+    struct tcphdr *tcp_header = (struct tcphdr*) packet;
+    return tcp_header;
+}
+
+unsigned short        /* this function generates header checksums */
+csum (unsigned short *buf, int nwords)
+{
+    unsigned long sum;
+    for (sum = 0; nwords > 0; nwords--)
+        sum += *buf++;
+    sum = (sum >> 16) + (sum & 0xffff);
+    sum += (sum >> 16);
+    return ~sum;
+}
+
+void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
+    int s = socket (PF_INET, SOCK_RAW, IPPROTO_TCP);    /* open raw socket */
+    char datagram[4096];    /* this buffer will contain ip header, tcp header,
+                             and payload. we'll point an ip header structure
+                             at its beginning, and a tcp header structure after
+                             that to write the header values into it */
+    struct ip *iph = (struct ip *) datagram;
+    struct tcphdr *tcph = (struct tcphdr *) (datagram + sizeof (struct ip));
+    struct sockaddr_in sin;
+    /* the sockaddr_in containing the dest. address is used
+     in sendto() to determine the datagrams path */
+    
+    sin.sin_family = AF_INET;
+    sin.sin_port = htons (25);/* you byte-order >1byte header values to network
+                              byte order (not needed on big endian machines) */
+    sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
+    
+    memset (datagram, 0, 4096);    /* zero out the buffer */
+    
+    /* we'll now fill in the ip/tcp header values, see above for explanations */
+    iph->ip_hl = og_ip->ip_hl;
+    iph->ip_v = og_ip->ip_v;
+    iph->ip_tos = og_ip->ip_tos;
+    iph->ip_len = sizeof (struct ip) + sizeof (struct tcphdr);    /* no payload */
+    iph->ip_id = og_ip->ip_id;    /* the value doesn't matter here */
+    iph->ip_off = og_ip->ip_off;
+    iph->ip_ttl = og_ip->ip_ttl;
+    iph->ip_p = og_ip->ip_p;
+    iph->ip_sum = 0;        /* set it to 0 before computing the actual checksum later */
+    iph->ip_src.s_addr = og_ip->ip_src.s_addr;/* SYN's can be blindly spoofed */
+    iph->ip_dst.s_addr = og_ip->ip_dst.s_addr;
+    
+    tcph->th_sport = (u_short) htons (10514);    /* arbitrary port */
+    tcph->th_dport = og_tcp->th_dport;
+    tcph->th_seq = og_tcp->th_seq;/* in a SYN packet, the sequence is a random */
+    tcph->th_ack = og_tcp->th_ack;/* number, and the ack sequence is 0 in the 1st packet */
+    tcph->th_x2 = og_tcp->th_x2;
+    tcph->th_off = og_tcp->th_off;        /* first and only tcp segment */
+    tcph->th_flags = og_tcp->th_flags;    /* initial connection request */
+    //tcph->th_win = (u_short) htonl (65535);    /* maximum allowed window size */
+    tcph->th_win = og_tcp->th_win;
+    tcph->th_sum = 0;/* if you set a checksum to zero, your kernel's IP stack
+                      should fill in the correct checksum during transmission */
+    tcph->th_urp = og_tcp->th_urp;
+    tcph->th_sum = 10701;
+    
+    iph->ip_sum = csum ((unsigned short *) datagram, iph->ip_len >> 1);
+    
+    struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
+    printf("%s\n", inet_ntoa(iph->ip_src));
+
+    
+    /* finally, it is very advisable to do a IP_HDRINCL call, to make sure
+     that the kernel knows the header is included in the data, and doesn't
+     insert its own header into the packet before our data */
+    /* lets do it the ugly way.. */
+    int one = 1;
+    const int *val = &one;
+    if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
+        printf ("Warning: Cannot set HDRINCL!\n");
+    int count = 0;
+    printf("%d\n", tcph->th_win);
+    if (sendto (s, datagram, iph->ip_len,    0, (struct sockaddr *) &sin, sizeof (sin)) < 0)
+        printf ("error\n");
+    else
+        printf ("success.\n ");
+}
+
+
 
 void handlePkt(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
     printf("\n Found a packet!\n");
     count++;
     printf("The count is %d\n", count);
-    ether_header_t *ether_pkt = (ether_header_t *) packet;
+    struct ip *ip = get_ip_header(packet);
+    struct tcphdr *tcp = get_tcp_header(packet);
+    inject(ip, tcp);
+    /*ether_header_t *ether_pkt = (ether_header_t *) packet;
     if(ntohs(ether_pkt->ether_type) == ETHERTYPE_IP) {
         printf("found an ethernet ip packet\n");
         printf("ethernet header source: %s\n", ether_ntoa((const struct ether_addr *)ether_pkt->ether_shost));
@@ -79,8 +161,8 @@ void handlePkt(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *pac
         return;
     } else {
         printf("This packet isn't ethernet\n");
-        get_ip_header(packet);
-    }
+        get_ip_header(packet);`
+    }*/
     //printf("ethernet header source: %s\n", ether_ntoa(const struct ether_addr *))
 }
 
@@ -112,20 +194,20 @@ int main(int argc, char **argv)
      net = 0;
      mask = 0;
      }*/
-    descr = pcap_open_live("lo0",1000,0, 1000,errbuf);
+    descr = pcap_open_live("en0",1000,0, 1000,errbuf);
     if(descr == NULL)
     {
         printf("pcap_open_live(): %s\n",errbuf);
         exit(1);
     }
-    /*if (pcap_compile(descr, &fp, "src host 10.180.223.161 and dst host 172.217.7.132", 0, net) == -1) {
+    if (pcap_compile(descr, &fp, "src host 10.0.0.105 and dst host 172.217.15.100", 0, net) == -1) {
         fprintf(stderr, "Couldn't parse filter\n");
         exit(1);
     }
     if (pcap_setfilter(descr, &fp) == -1) {
         fprintf(stderr, "Couldn't install filter\n");
         exit(1);
-    }*/
+    }
     
     int linktype;
     
@@ -160,7 +242,7 @@ int main(int argc, char **argv)
     /*while (pcap_next_ex(descr, &hdr, &packet)) {
         handlePkt(hdr, packet);
     }*/
-    pcap_loop(descr, 20, handlePkt, 0 );
+    pcap_loop(descr, 1, handlePkt, 0 );
     pcap_close(descr);
     
     return 0;

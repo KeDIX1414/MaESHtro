@@ -42,7 +42,8 @@ main (void)
   sin.sin_family = AF_INET;
   sin.sin_port = htons (P);/* you byte-order >1byte header values to network
 			      byte order (not needed on big endian machines) */
-  sin.sin_addr.s_addr = inet_addr ("10.0.0.171");
+  //sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
+    sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
 
   memset (datagram, 0, 4096);	/* zero out the buffer */
 
@@ -56,10 +57,10 @@ main (void)
   iph->ip_ttl = 255;
   iph->ip_p = 6;
   iph->ip_sum = 0;		/* set it to 0 before computing the actual checksum later */
-  iph->ip_src.s_addr = inet_addr ("10.0.0.133");/* SYN's can be blindly spoofed */
+  iph->ip_src.s_addr = inet_addr ("10.0.0.105");/* SYN's can be blindly spoofed */
   iph->ip_dst.s_addr = sin.sin_addr.s_addr;
 
-  tcph->th_sport = (u_short) htons (80);	/* arbitrary port */
+  tcph->th_sport = (u_short) htons (10515);	/* arbitrary port */
   tcph->th_dport = (u_short) htons (80);
   tcph->th_seq = random() % 65535;/* in a SYN packet, the sequence is a random */
   tcph->th_ack = 0;/* number, and the ack sequence is 0 in the 1st packet */
@@ -76,7 +77,6 @@ main (void)
   iph->ip_sum = csum ((unsigned short *) datagram, iph->ip_len >> 1);
 
   struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
-  printf("%d\n", (u_short) htonl (65535));
 
 /* finally, it is very advisable to do a IP_HDRINCL call, to make sure
    that the kernel knows the header is included in the data, and doesn't
