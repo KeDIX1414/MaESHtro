@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <stdlib.h>
+
 #define P 25		/* lets flood the sendmail port */
 
 unsigned short		/* this function generates header checksums */
@@ -45,18 +46,24 @@ uint16_t tcp_checksum(const void *buff, size_t len, in_addr_t src_addr, in_addr_
 
          // Add the pseudo-header                                        //
          sum += *(ip_src++);
+     printf("%d\n", sum);
          sum += *ip_src;
+     printf("%d\n", sum);
          sum += *(ip_dst++);
          sum += *ip_dst;
          sum += htons(IPPROTO_TCP);
          sum += htons(length);
 
          // Add the carries                                              //
-         while (sum >> 16)
-                 sum = (sum & 0xFFFF) + (sum >> 16);
+     while (sum >> 16) {
+             sum = (sum & 0xFFFF) + (sum >> 16);
+            printf("%d\n", sum);
+     }
+     uint16_t final_sum = sum;
+     printf("%x\n", final_sum);
+     printf("%x\n", ~final_sum);
 
          // Return the one's complement of sum
-     printf("%d\n", (uint16_t)(~sum));
          return ( (uint16_t)(~sum)  );
 }
 
@@ -95,7 +102,6 @@ main (void)
   iph->ip_sum = 0;		/* set it to 0 before computing the actual checksum later */
   iph->ip_src.s_addr = inet_addr ("10.0.0.105");/* SYN's can be blindly spoofed */
   iph->ip_dst.s_addr = sin.sin_addr.s_addr;
-
   tcph->th_sport = (u_short) htons (10515);	/* arbitrary port */
   tcph->th_dport = (u_short) htons (80);
   tcph->th_seq = random() % 65535;/* in a SYN packet, the sequence is a random */
@@ -106,11 +112,10 @@ main (void)
   //tcph->th_win = (u_short) htonl (65535);	/* maximum allowed window size */
   tcph->th_win = htons(65535);
   tcph->th_urp = 0;
-  tcph->th_sum = 10445;
-    //tcph->th_sum = 0;
+  //tcph->th_sum = 10445;
+  tcph->th_sum = tcp_checksum(tcph, 20, iph->ip_src.s_addr, iph->ip_dst.s_addr);
 
   iph->ip_sum = csum ((unsigned short *) datagram, iph->ip_len >> 1);
-    tcp_checksum(tcph, 5, iph->ip_src.s_addr, iph->ip_dst.s_addr);
 
   struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
 
@@ -123,7 +128,6 @@ main (void)
   if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
     printf ("Warning: Cannot set HDRINCL!\n");
   int count = 0;
-  printf("%d\n", tcph->th_win);
   while (count < 10) {
     if (sendto (s, datagram, iph->ip_len,	0, (struct sockaddr *) &sin, sizeof (sin)) < 0)		
 	    printf ("error\n");
