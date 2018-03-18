@@ -72,6 +72,49 @@ csum (unsigned short *buf, int nwords)
     return ~sum;
 }
 
+uint16_t tcp_checksum(const void *buff, size_t len, in_addr_t src_addr, in_addr_t dest_addr)
+{
+    const uint16_t *buf=buff;
+    uint16_t *ip_src=(void *)&src_addr, *ip_dst=(void *)&dest_addr;
+    uint32_t sum;
+    size_t length=len;
+    // Calculate the sum                                            //
+    sum = 0;
+    while (len > 1)
+    {
+        sum += *buf++;
+        if (sum & 0x80000000)
+            sum = (sum & 0xFFFF) + (sum >> 16);
+        len -= 2;
+    }
+    
+    if ( len & 1 )
+        // Add the padding if the packet lenght is odd          //
+        sum += *((uint8_t *)buf);
+    
+    // Add the pseudo-header                                        //
+    sum += *(ip_src++);
+    printf("%d\n", sum);
+    sum += *ip_src;
+    printf("%d\n", sum);
+    sum += *(ip_dst++);
+    sum += *ip_dst;
+    sum += htons(IPPROTO_TCP);
+    sum += htons(length);
+    
+    // Add the carries                                              //
+    while (sum >> 16) {
+        sum = (sum & 0xFFFF) + (sum >> 16);
+        printf("%d\n", sum);
+    }
+    uint16_t final_sum = sum;
+    printf("%x\n", final_sum);
+    printf("%x\n", ~final_sum);
+    
+    // Return the one's complement of sum
+    return ( (uint16_t)(~sum)  );
+}
+
 void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     int s = socket (PF_INET, SOCK_RAW, IPPROTO_TCP);    /* open raw socket */
     char datagram[4096];    /* this buffer will contain ip header, tcp header,
@@ -101,12 +144,11 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     iph->ip_off = og_ip->ip_off;
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
-    iph->ip_sum = 0;        /* set it to 0 before computing the actual checksum later */
-    
+    iph->ip_sum = 0;
     iph->ip_src.s_addr = inet_addr("10.0.0.105");/* SYN's can be blindly spoofed */
     iph->ip_dst.s_addr = inet_addr("172.217.15.100");
     
-    tcph->th_sport = (u_short) htons (10515);    /* arbitrary port */
+    tcph->th_sport = og_tcp->th_sport;    /* arbitrary port */
     tcph->th_dport = og_tcp->th_dport;
     tcph->th_seq = og_tcp->th_seq;/* in a SYN packet, the sequence is a random */
     tcph->th_ack = og_tcp->th_ack;/* number, and the ack sequence is 0 in the 1st packet */
@@ -116,9 +158,10 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     //tcph->th_win = (u_short) htonl (65535);    /* maximum allowed window size */
     tcph->th_win = og_tcp->th_win;
     tcph->th_urp = og_tcp->th_urp;
-    tcph->th_sum = 10445;
+    tcph->th_sum = 0;
     
     iph->ip_sum = csum ((unsigned short *) datagram, iph->ip_len >> 1);
+    tcph->th_sum = tcp_checksum(tcph, 20, iph->ip_src.s_addr, iph->ip_dst.s_addr);
     
     struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
     printf("%s\n", inet_ntoa(iph->ip_src));
