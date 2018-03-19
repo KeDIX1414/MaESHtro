@@ -43,14 +43,15 @@ class MaestroSocket:
 						#TODO: I assume gateway_node_ip is now a string, but I haven't verified this yet!
 						#print(data.decode())
 						gateway_node_ip = data.decode()
+						print("gateway_node_ip is: ")
 						print(gateway_node_ip)
 						
 						#If current client is the gate, delete the route
 						#if my_ip_address == gateway_node_ip: 
-						#	subprocess.check_output(["ip route del", "0/0"])
+						#	subprocess.check_output(["ip route del ", "0/0"])
 
 						#Add route to gateway node
-						#output = subprocess.check_output(["sudo ip route add default via", gateway_node_ip])
+						#output = subprocess.check_output(["sudo ip route add default via ", gateway_node_ip])
 						#print(output)
 				else:
 					# msg = sys.stdin.readline()
@@ -76,6 +77,8 @@ class MaestroSocket:
 							parsed_client_json = ast.literal_eval(message)
 							if parsed_client_json["is_gateway"] == True: 
 								gateway_node_ip = parsed_client_json["my_ip"]
+								print("gateway node ip is now: ")
+								print(gateway_node_ip)
 
 							#self.broadcast(sock, data)
 							self.broadcast(sock, gateway_node_ip.encode())

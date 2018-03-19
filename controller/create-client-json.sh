@@ -4,7 +4,7 @@
 echo "{" > client-neighbors.json
 
 #Find my own IP addres, create my-neighbors file, and write my IP to it
-#MY_IP="$(hostname -i)"
+MY_IP="$(hostname -i)"
 echo "'my_ip': '${MY_IP}'," >> client-neighbors.json
 
 
