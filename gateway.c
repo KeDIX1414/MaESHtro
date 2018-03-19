@@ -101,8 +101,11 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);/* you byte-order >1byte header values to network
                               byte order (not needed on big endian machines) */
-    sin.sin_addr.s_addr = inet_addr ("172.217.15.68");
-    
+    if (strcmp(inet_ntoa(og_ip->ip_src), "10.0.0.242") == 0) {
+        sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
+    } else {
+        sin.sin_addr.s_addr = inet_addr ("10.0.0.242");
+    }
     memset (datagram, 0, 4096);    /* zero out the buffer */
     
     /* we'll now fill in the ip/tcp header values, see above for explanations */
@@ -115,8 +118,13 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    iph->ip_src.s_addr = inet_addr("10.0.0.105");/* SYN's can be blindly spoofed */
-    iph->ip_dst.s_addr = inet_addr("172.217.15.68");
+    if (strcmp(inet_ntoa(og_ip->ip_src), "10.0.0.242") == 0) {
+        iph->ip_src.s_addr = inet_addr("10.0.0.105");/* SYN's can be blindly spoofed */
+        iph->ip_dst.s_addr = inet_addr("172.217.15.100");
+    } else {
+        iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
+        iph->ip_dst.s_addr = inet_addr("10.0.0.242");
+    }
     
     tcph->th_sport = og_tcp->th_sport;    /* arbitrary port */
     tcph->th_dport = og_tcp->th_dport;
@@ -134,8 +142,8 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     tcph->th_sum = tcp_checksum(tcph, 20, iph->ip_src.s_addr, iph->ip_dst.s_addr);
     
     struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
-    printf("%x\n", tcph->th_seq);
-    printf("%d\n", tcph->th_win);
+    printf("%s\n", inet_ntoa(iph->ip_src));
+    printf("%s\n", inet_ntoa(iph->ip_dst));
 
     
     /* finally, it is very advisable to do a IP_HDRINCL call, to make sure
@@ -198,7 +206,7 @@ int main(int argc, char **argv)
         printf("pcap_open_live(): %s\n",errbuf);
         exit(1);
     }
-    if (pcap_compile(descr, &fp, "src host 10.0.0.105 and dst host 172.217.15.100", 0, net) == -1) {
+    if (pcap_compile(descr, &fp, "(src host 10.0.0.242 and dst host 172.217.15.100) or (src host 172.217.15.100 and dst host 10.0.0.105)", 0, net) == -1) {
         fprintf(stderr, "Couldn't parse filter\n");
         exit(1);
     }
@@ -240,7 +248,7 @@ int main(int argc, char **argv)
     /*while (pcap_next_ex(descr, &hdr, &packet)) {
         handlePkt(hdr, packet);
     }*/
-    pcap_loop(descr, 1, handlePkt, 0 );
+    pcap_loop(descr, 20, handlePkt, 0 );
     pcap_close(descr);
     
     return 0;
