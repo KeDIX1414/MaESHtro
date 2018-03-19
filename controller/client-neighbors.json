@@ -1,0 +1,8 @@
+{
+'my_ip': '',
+'is_gateway': True,
+'neighbors': [
+'www.facebook.com',
+'www.reddit.com'
+]
+}
