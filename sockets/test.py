@@ -10,18 +10,11 @@ except socket.error as err:
 # default port for socket
 port = 80
 
-try:
-    host_ip = socket.gethostbyname('www.google.com')
-except socket.gaierror:
-    # this means could not resolve the host
-    print("there was an error resolving the host")
-    sys.exit()
 
 # connecting to the server
 s.connect(("172.217.15.100",port))
 
-print("the socket has successfully connected to google \
-on port == %s" %(host_ip))
+print("the socket has successfully connected to google")
 
 '''message = "GET / HTTP/1.1\r\n\r\n"
 

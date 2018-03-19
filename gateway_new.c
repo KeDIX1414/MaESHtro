@@ -197,19 +197,19 @@ int main(int argc, char **argv)
         printf("%s\n",errbuf);
         exit(1);
     }
-    printf("DEV: %s\n",dev);
+    //printf("DEV: %s\n",dev);
     /*if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
      fprintf(stderr, "Can't get netmask\n");
      net = 0;
      mask = 0;
      }*/
-    descr = pcap_open_live("wlan0",1000,0, 1000,errbuf);
+    descr = pcap_open_live("wlan1",1000,0, 1000,errbuf);
     if(descr == NULL)
     {
         printf("pcap_open_live(): %s\n",errbuf);
         exit(1);
     }
-    if (pcap_compile(descr, &fp, "src host 6.6.1.5", 0, net) == -1) {
+    if (pcap_compile(descr, &fp, "src host 172.217.15.100 and dst host 192.168.1.16", 0, net) == -1) {
         fprintf(stderr, "Couldn't parse filter\n");
         exit(1);
     }
