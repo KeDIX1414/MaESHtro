@@ -1,0 +1,5 @@
+1. Implement logic where if you to switch gateway, delete default routes
+
+2. Handle errors
+
+3. Put in 5 second sleep before send
