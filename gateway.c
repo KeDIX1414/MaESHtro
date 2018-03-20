@@ -36,8 +36,15 @@ struct tcphdr *get_tcp_header(const u_char *packet) {
     return tcp_header;
 }
 
-unsigned short        /* this function generates header checksums */
-csum (unsigned short *buf, int nwords)
+char *get_payload(const u_char *packet, int starting_point, int packet_length) {
+    char *payload = malloc(packet_length - starting_point);
+    char *payload_ptr = (char *)(packet + starting_point);
+    memcpy(payload, payload_ptr, packet_length - starting_point);
+    return payload;
+    
+}
+
+unsigned short csum (unsigned short *buf, int nwords)
 {
     unsigned long sum;
     for (sum = 0; nwords > 0; nwords--)
@@ -85,7 +92,7 @@ uint16_t tcp_checksum(const void *buff, size_t len, in_addr_t src_addr, in_addr_
     return ( (uint16_t)(~sum)  );
 }
 
-void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
+void inject(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payload_len) {
     int s = socket (PF_INET, SOCK_RAW, IPPROTO_TCP);    /* open raw socket */
     char datagram[4096];    /* this buffer will contain ip header, tcp header,
                              and payload. we'll point an ip header structure
@@ -101,7 +108,6 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     sin.sin_port = htons (25);/* you byte-order >1byte header values to network
                               byte order (not needed on big endian machines) */
     if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
-        printf("here1\n");
 	sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
     } else {
         sin.sin_addr.s_addr = inet_addr ("6.6.1.5");
@@ -112,17 +118,19 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     iph->ip_hl = 5;
     iph->ip_v = og_ip->ip_v;
     iph->ip_tos = og_ip->ip_tos;
-    iph->ip_len = sizeof (struct ip) + sizeof (struct tcphdr);    /* no payload */
+    if (payload == NULL) {
+        iph->ip_len = sizeof (struct ip) + sizeof (struct tcphdr);
+    } else {
+        iph->ip_len = sizeof (struct ip) + sizeof (struct tcphdr) + payload_len;
+    }
     iph->ip_id = og_ip->ip_id;    /* the value doesn't matter here */
     iph->ip_off = 0;
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
     if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
-	printf("here!\n");
         iph->ip_src.s_addr = inet_addr("192.168.1.16");/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = inet_addr("172.217.15.100");
-	printf("Is it being modified: %s\n", inet_ntoa(iph->ip_src));
     } else {
         iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = inet_addr("6.6.1.5");
@@ -139,20 +147,18 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp) {
     tcph->th_win = og_tcp->th_win;
     tcph->th_urp = og_tcp->th_urp;
     tcph->th_sum = 0;
+    // add the payload
+    memcpy(datagram + sizeof (struct ip) + sizeof (struct tcphdr), payload, payload_len);
     
     iph->ip_sum = csum ((unsigned short *) datagram, iph->ip_len >> 1);
-    tcph->th_sum = tcp_checksum(tcph, 20, iph->ip_src.s_addr, iph->ip_dst.s_addr);
+    tcph->th_sum = tcp_checksum(tcph, 20 + payload_len, iph->ip_src.s_addr, iph->ip_dst.s_addr);
     
     struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
     printf("Modified packet the source is %s but was\n", inet_ntoa(iph->ip_src));
-printf("Is it being modified1: %s\n", inet_ntoa(iph->ip_src));
     printf("Modified packet the destination is %s\n", inet_ntoa(iph->ip_dst));
+    printf("The packet's length is %d\n", iph->ip_len);
+    printf("The tcp checksum is %x\n", tcph->th_sum);
 
-    
-    /* finally, it is very advisable to do a IP_HDRINCL call, to make sure
-     that the kernel knows the header is included in the data, and doesn't
-     insert its own header into the packet before our data */
-    /* lets do it the ugly way.. */
     int one = 1;
     const int *val = &one;
     if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
@@ -167,12 +173,15 @@ printf("Is it being modified1: %s\n", inet_ntoa(iph->ip_src));
 
 
 void handlePkt(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
-    printf("\n Found a packet!\n");
-    count++;
-    printf("The count is %d\n", count);
     struct ip *ip = get_ip_header(packet);
     struct tcphdr *tcp = get_tcp_header(packet);
-    inject(ip, tcp);
+    if (tcp->th_off == 5 && ip->ip_len > sizeof(struct ip) + sizeof(struct tcphdr)) {
+        char *payload = get_payload(packet, sizeof(struct ip) + sizeof(struct tcphdr), pkthdr->caplen);
+        int payload_len = pkthdr->caplen - (sizeof(struct ip) + sizeof(struct tcphdr));
+        inject(ip, tcp, payload, payload_len);
+    } else {
+        inject(ip, tcp, NULL, 0);
+    }
 }
 
 
