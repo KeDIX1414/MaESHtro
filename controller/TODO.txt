@@ -1,5 +1,10 @@
-1. Implement logic where if you to switch gateway, delete default routes
+X Implement logic where if you to switch gateway, delete default routes
 
-2. Handle errors
+X Handle errors
 
-3. Put in 5 second sleep before send
+X Put in 5 second sleep before send
+
+Start making the controller's graph that will determine routing and gateway suggestions
+	Dynamic gateway: First make sure client sticks with a gateway that works for it and not switch between two possibilities unless its original gateway goes down
+
+	Multihop: Create a graph

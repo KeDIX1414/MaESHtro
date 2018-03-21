@@ -18,6 +18,7 @@ else
 fi 
 
 #Manually ping each possible neighbor IP and add if reachable 
+#TODO: Add your range of IPs you'd like to ping here
 echo "'neighbors': [" >> client-neighbors.json
 
 PING_OUTPUT="$(ping -c 1 www.facebook.com | grep "1 received")"
@@ -34,5 +35,5 @@ fi
 
 echo "]" >> client-neighbors.json
 
-#Begin JSON file with curly bracket
+#End JSON file with curly bracket
 echo "}" >> client-neighbors.json
