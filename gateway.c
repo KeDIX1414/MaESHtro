@@ -38,10 +38,48 @@ struct tcphdr *get_tcp_header(const u_char *packet) {
 
 char *get_payload(const u_char *packet, int starting_point, int packet_length) {
     char *payload = malloc(packet_length - starting_point);
-    char *payload_ptr = (char *)(packet + starting_point);
+    char *payload_ptr = (char *)(packet + starting_point + linkhdrlen);
     memcpy(payload, payload_ptr, packet_length - starting_point);
     return payload;
     
+}
+
+void PrintData (unsigned char* data , int Size)
+{
+    int i;
+    int j;
+    for(i=0 ; i < Size ; i++)
+    {
+        if( i!=0 && i%16==0)   //if one line of hex printing is complete...
+        {
+            printf("         ");
+            for(j=i-16 ; j<i ; j++)
+            {
+                if(data[j]>=32 && data[j]<=128)
+                    printf("%c",(unsigned char)data[j]); //if its a number or alphabet
+                
+                else printf("."); //otherwise print a dot
+            }
+            printf("\n");
+        }
+        
+        if(i%16==0) printf("   ");
+        printf(" %02X",(unsigned int)data[i]);
+        
+        if( i==Size-1)  //print the last spaces
+        {
+            for(j=0;j<15-i%16;j++) printf("   "); //extra spaces
+            
+            printf("         ");
+            
+            for(j=i-i%16 ; j<=i ; j++)
+            {
+                if(data[j]>=32 && data[j]<=128) printf("%c",(unsigned char)data[j]);
+                else printf(".");
+            }
+            printf("\n");
+        }
+    }
 }
 
 unsigned short csum (unsigned short *buf, int nwords)
@@ -92,7 +130,8 @@ uint16_t tcp_checksum(const void *buff, size_t len, in_addr_t src_addr, in_addr_
     return ( (uint16_t)(~sum)  );
 }
 
-void inject(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payload_len) {
+void inject(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payload_len, int total_len) {
+    printf("The payload length is %d\n", payload_len);
     int s = socket (PF_INET, SOCK_RAW, IPPROTO_TCP);    /* open raw socket */
     char datagram[4096];    /* this buffer will contain ip header, tcp header,
                              and payload. we'll point an ip header structure
@@ -107,10 +146,12 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payload_
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);/* you byte-order >1byte header values to network
                               byte order (not needed on big endian machines) */
-    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
-	sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
+    if (strcmp(inet_ntoa(og_ip->ip_src), "172.20.10.6") == 0) {
+        sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
+        printf("This packet is coming from the pi\n");
     } else {
-        sin.sin_addr.s_addr = inet_addr ("6.6.1.5");
+        sin.sin_addr.s_addr = inet_addr ("172.20.10.6");
+        printf("This packet is coming from google\n");
     }
     memset (datagram, 0, 4096);    /* zero out the buffer */
     
@@ -128,12 +169,12 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payload_
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
-        iph->ip_src.s_addr = inet_addr("192.168.1.16");/* SYN's can be blindly spoofed */
+    if (strcmp(inet_ntoa(og_ip->ip_src), "172.20.10.6") == 0) {
+        iph->ip_src.s_addr = inet_addr("172.20.10.6");/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = inet_addr("172.217.15.100");
     } else {
         iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
-        iph->ip_dst.s_addr = inet_addr("6.6.1.5");
+        iph->ip_dst.s_addr = inet_addr("172.20.10.6");
     }
     
     tcph->th_sport = og_tcp->th_sport;    /* arbitrary port */
@@ -154,20 +195,25 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payload_
     tcph->th_sum = tcp_checksum(tcph, 20 + payload_len, iph->ip_src.s_addr, iph->ip_dst.s_addr);
     
     struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
-    printf("Modified packet the source is %s but was\n", inet_ntoa(iph->ip_src));
+    /*printf("Modified packet the source is %s but was\n", inet_ntoa(iph->ip_src));
     printf("Modified packet the destination is %s\n", inet_ntoa(iph->ip_dst));
     printf("The packet's length is %d\n", iph->ip_len);
-    printf("The tcp checksum is %x\n", tcph->th_sum);
-
+    printf("The tcp checksum is %x\n", tcph->th_sum);*/
+    /*printf("Printing the IP header\n");
+    PrintData(datagram, iph->ip_hl*4);
+    printf("Printing the TCP header\n");
+    PrintData(datagram + 20,tcph->th_off*4);
+    printf("Printing the Payload\n");
+    PrintData(datagram + 20 + tcph->th_off*4, total_len - 20 - tcph->th_off*4);*/
     int one = 1;
-    const int *val = &one;
+    /*const int *val = &one;
     if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
         printf ("Warning: Cannot set HDRINCL!\n");
     int count = 0;
     if (sendto (s, datagram, iph->ip_len,    0, (struct sockaddr *) &sin, sizeof (sin)) < 0)
         printf ("error\n");
     else
-        printf ("success.\n ");
+        printf ("success.\n ");*/
 }
 
 
@@ -175,12 +221,20 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payload_
 void handlePkt(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
     struct ip *ip = get_ip_header(packet);
     struct tcphdr *tcp = get_tcp_header(packet);
+    printf("Printing the IP header\n");
+    PrintData(packet + linkhdrlen, ip->ip_hl*4);
+    printf("Printing the TCP header\n");
+    PrintData(packet +linkhdrlen + 20,tcp->th_off*4);
+    printf("Printing the Payload\n");
+    printf("The caplen is %d and the len is %d and the ip says it is %d\n", pkthdr->caplen, pkthdr->len, ip->ip_len >> 8);
+    PrintData(packet + linkhdrlen + 20 + tcp->th_off*4, (ip->ip_len >> 8) - 20 - tcp->th_off*4);
+    printf("\n\n\n");
     if (tcp->th_off == 5 && ip->ip_len > sizeof(struct ip) + sizeof(struct tcphdr)) {
         char *payload = get_payload(packet, sizeof(struct ip) + sizeof(struct tcphdr), pkthdr->caplen);
         int payload_len = pkthdr->caplen - (sizeof(struct ip) + sizeof(struct tcphdr));
-        inject(ip, tcp, payload, payload_len);
+        inject(ip, tcp, payload, payload_len, pkthdr->caplen);
     } else {
-        inject(ip, tcp, NULL, 0);
+        inject(ip, tcp, NULL, 0, pkthdr->caplen);
     }
 }
 
@@ -212,13 +266,13 @@ int main(int argc, char **argv)
      net = 0;
      mask = 0;
      }*/
-    descr = pcap_open_live("wlan0",1000,0, 1000,errbuf);
+    descr = pcap_open_live("en0",1000,0, 1000,errbuf);
     if(descr == NULL)
     {
         printf("pcap_open_live(): %s\n",errbuf);
         exit(1);
     }
-    if (pcap_compile(descr, &fp, "src host 6.6.1.5", 0, net) == -1) {
+    if (pcap_compile(descr, &fp, "src host 172.20.10.6 and dst host 172.217.15.100 and tcp", 0, net) == -1) {
         fprintf(stderr, "Couldn't parse filter\n");
         exit(1);
     }
@@ -260,7 +314,7 @@ int main(int argc, char **argv)
     /*while (pcap_next_ex(descr, &hdr, &packet)) {
         handlePkt(hdr, packet);
     }*/
-    pcap_loop(descr, 20, handlePkt, 0 );
+    pcap_loop(descr, 10, handlePkt, 0 );
     pcap_close(descr);
     
     return 0;
