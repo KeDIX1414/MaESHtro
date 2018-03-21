@@ -5,6 +5,6 @@ X Handle errors
 X Put in 5 second sleep before send
 
 Start making the controller's graph that will determine routing and gateway suggestions
-	Dynamic gateway: First make sure client sticks with a gateway that works for it and not switch between two possibilities unless its original gateway goes down
+	X Dynamic gateway: First make sure client sticks with a gateway that works for it and not switch between two possibilities unless its original gateway goes down
 
 	Multihop: Create a graph

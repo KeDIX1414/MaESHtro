@@ -65,10 +65,16 @@ class MaestroSocket:
 				print(str(e))
 				print("Could not receive gateway IP address from server")
 
-			#Compare new gateway node to old gateway node. If different, delete default route
-			#NOTE: this will not work if gateway_node_ip is not string type
+			# Compare new gateway node to old gateway node. If different, delete default route
+			# Do not change gateway if node already has functioning gateway
+			# NOTE: this will not work if gateway_node_ip is not string type
+			# TODO: test value of old_gateway
+
 			old_gateway = os.environ["GATEWAY_NODE_IP"]
-			if old_gateway != gateway_node_ip: 
+			print("Client old gateway IP is: ")
+			print(old_gateway)
+
+			if old_gateway != gateway_node_ip and old_gateway == "": 
 				os.environ["GATEWAY_NODE_IP"] = gateway_node_ip
 				print("I have a new gateway node now!")
 				subprocess.call(["sudo ip route del ", "0/0"], shell=True)
