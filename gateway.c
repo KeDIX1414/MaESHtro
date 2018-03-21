@@ -147,7 +147,7 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payload_
     sin.sin_port = htons (25);/* you byte-order >1byte header values to network
                               byte order (not needed on big endian machines) */
     if (strcmp(inet_ntoa(og_ip->ip_src), "172.20.10.6") == 0) {
-        sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
+        sin.sin_addr.s_addr = inet_addr ("172.217.15.68");
         printf("This packet is coming from the pi\n");
     } else {
         sin.sin_addr.s_addr = inet_addr ("172.20.10.6");
@@ -171,9 +171,9 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payload_
     iph->ip_sum = 0;
     if (strcmp(inet_ntoa(og_ip->ip_src), "172.20.10.6") == 0) {
         iph->ip_src.s_addr = inet_addr("172.20.10.6");/* SYN's can be blindly spoofed */
-        iph->ip_dst.s_addr = inet_addr("172.217.15.100");
+        iph->ip_dst.s_addr = inet_addr("172.217.15.68");
     } else {
-        iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
+        iph->ip_src.s_addr = inet_addr("172.217.15.68");/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = inet_addr("172.20.10.6");
     }
     
@@ -199,21 +199,21 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payload_
     printf("Modified packet the destination is %s\n", inet_ntoa(iph->ip_dst));
     printf("The packet's length is %d\n", iph->ip_len);
     printf("The tcp checksum is %x\n", tcph->th_sum);*/
-    /*printf("Printing the IP header\n");
+    printf("Printing the IP header\n");
     PrintData(datagram, iph->ip_hl*4);
     printf("Printing the TCP header\n");
     PrintData(datagram + 20,tcph->th_off*4);
     printf("Printing the Payload\n");
-    PrintData(datagram + 20 + tcph->th_off*4, total_len - 20 - tcph->th_off*4);*/
+    PrintData(datagram + 20 + tcph->th_off*4, iph->ip_len - 20 - tcph->th_off*4);
     int one = 1;
-    /*const int *val = &one;
+    const int *val = &one;
     if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
         printf ("Warning: Cannot set HDRINCL!\n");
     int count = 0;
     if (sendto (s, datagram, iph->ip_len,    0, (struct sockaddr *) &sin, sizeof (sin)) < 0)
         printf ("error\n");
     else
-        printf ("success.\n ");*/
+        printf ("success.\n ");
 }
 
 
@@ -221,20 +221,22 @@ void inject(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payload_
 void handlePkt(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
     struct ip *ip = get_ip_header(packet);
     struct tcphdr *tcp = get_tcp_header(packet);
-    printf("Printing the IP header\n");
+    /*printf("Printing the IP header\n");
     PrintData(packet + linkhdrlen, ip->ip_hl*4);
     printf("Printing the TCP header\n");
     PrintData(packet +linkhdrlen + 20,tcp->th_off*4);
     printf("Printing the Payload\n");
     printf("The caplen is %d and the len is %d and the ip says it is %d\n", pkthdr->caplen, pkthdr->len, ip->ip_len >> 8);
-    PrintData(packet + linkhdrlen + 20 + tcp->th_off*4, (ip->ip_len >> 8) - 20 - tcp->th_off*4);
+    PrintData(packet + linkhdrlen + 20 + tcp->th_off*4, (ip->ip_len >> 8) - 20 - tcp->th_off*4);*/
     printf("\n\n\n");
-    if (tcp->th_off == 5 && ip->ip_len > sizeof(struct ip) + sizeof(struct tcphdr)) {
-        char *payload = get_payload(packet, sizeof(struct ip) + sizeof(struct tcphdr), pkthdr->caplen);
-        int payload_len = pkthdr->caplen - (sizeof(struct ip) + sizeof(struct tcphdr));
-        inject(ip, tcp, payload, payload_len, pkthdr->caplen);
+    if (ip->ip_len >> 8 > sizeof(struct ip) + tcp->th_off*4) {
+        printf("found a packet without data");
+        char *payload = get_payload(packet, sizeof(struct ip) + tcp->th_off*4, ip->ip_len >> 8);
+        int payload_len = (ip->ip_len >> 8) - (sizeof(struct ip) + tcp->th_off*4);
+        inject(ip, tcp, payload, payload_len, ip->ip_len >> 8);
     } else {
-        inject(ip, tcp, NULL, 0, pkthdr->caplen);
+        printf("found a packet with data\n");
+        inject(ip, tcp, NULL, 0, ip->ip_len >> 8);
     }
 }
 
