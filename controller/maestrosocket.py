@@ -7,10 +7,12 @@ import commands
 import subprocess
 import time
 import os 
+from graph import Graph
 
 class MaestroSocket:
 	def __init__(self, ip, port, server=False, username="KeDIX1414"):
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.controller_graph = Graph(directed=True)
 		# self.sock.setblocking(0)
 		if server:
 			self.sock.bind((ip, port))
@@ -143,9 +145,16 @@ class MaestroSocket:
 							print("Received client JSON received: ")
 							print(parsed_client_json)
 							
+							# Add/delete nodes in network to graph, if any
+							client_ip = parsed_client_json["my_ip"]
+							client_neighbors = parsed_client_json["neighbors"]
+							self.controller_graph.update_neighbors(client_ip, client_neighbors)
+
+							# If client is a gateway, update controller graph accordingly
 							if parsed_client_json["is_gateway"] == True: 
 								gateway_node_ip = parsed_client_json["my_ip"]
-								print("gateway node ip in server loop is now: ")
+								self.controller_graph.add_gateway(gateway_node_ip)
+								print("added gateway node ip to graph: ")
 								print(gateway_node_ip)
 								# gateway_node_ip= "192.168.1.1"
 							sock.send(gateway_node_ip.encode())
