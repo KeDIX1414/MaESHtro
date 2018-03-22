@@ -383,7 +383,7 @@ int main(int argc, char **argv)
         printf("pcap_open_live(): %s\n",errbuf);
         exit(1);
     }
-    if (pcap_compile(descr, &fp, "(src host 10.0.0.159 and dst host 172.217.15.100) or (src host 172.217.15.100 and dst host 10.0.0.133)", 0, net) == -1) {
+    if (pcap_compile(descr, &fp, "(src host 6.6.1.5 and dst host 172.217.15.100) or (src host 172.217.15.100 and dst host 10.0.0.244)", 0, net) == -1) {
         fprintf(stderr, "Couldn't parse filter\n");
         exit(1);
     }
