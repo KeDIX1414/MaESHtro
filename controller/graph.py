@@ -6,11 +6,10 @@ import math
 class Graph(object):
     """ Graph data structure, undirected by default. """
 
-    def __init__(self, connections, directed=False):
+    def __init__(self, directed=True):
         # Represent graph as dictionary of sets. Node is key, neighbors are enumerated in set
         self._graph = defaultdict(set)
         self._directed = directed
-        self.add_connections_list(connections)
         self.all_nodes = set() # Set of all nodes (vertices set)
         self.all_gateways = set() # Set of all gateways
         self.has_seen = set() # Set of all nodes communicated with in past x iterations of server code

@@ -12,7 +12,7 @@ from graph import Graph
 class MaestroSocket:
 	def __init__(self, ip, port, server=False, username="KeDIX1414"):
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.controller_graph = Graph(directed=True)
+		self.controller_graph = Graph()
 		# self.sock.setblocking(0)
 		if server:
 			self.sock.bind((ip, port))
@@ -34,9 +34,12 @@ class MaestroSocket:
 	def client_loop(self):
 		my_ip_address = ""
 		gateway_node_ip = ""
-
+                os.environ["GATEWAY_NODE_IP"] = ""
+                should_add_gateway = False
+                
 		try: 
 			my_ip_address = subprocess.check_output(["sed -n -e 's/^.*address //p' /etc/network/interfaces"], shell=True)
+			my_ip_address = my_ip_address.strip('\n')
 			print("My ip address is ")
 			print(my_ip_address)
 		except Exception as e: 
@@ -47,9 +50,9 @@ class MaestroSocket:
 		while 1:
             
             # Generate client-neighbors.json file
-            try: 
+                        try: 
 				run = subprocess.check_output(["sh create-client-json.sh"], shell=True)
-			except Exception as e: 
+                        except Exception as e: 
 				print(str(e))
 				print("Could not run 'create-client-json' script")
             
@@ -85,21 +88,24 @@ class MaestroSocket:
 			print("Client old gateway IP was: ")
 			print(old_gateway)
 
-			# TODO: This logic is not right
-			if old_gateway != gateway_node_ip and old_gateway == "": 
+			# If I got a new gateway IP, delete defulta routes
+			if old_gateway != gateway_node_ip or old_gateway == "": 
 				os.environ["GATEWAY_NODE_IP"] = gateway_node_ip
 				print("I have a new gateway node now!")
+				should_add_gateway = True
 				subprocess.call(["sudo ip route del ", "0/0"], shell=True)
-
+			
 			#If current client is the gateway, delete the route
-			if my_ip_address == gateway_node_ip: 
+                        if my_ip_address == gateway_node_ip: 
 				print("I am the gateway")
+				should_add_gateway = False
 				subprocess.call(["sudo ip route del ", "0/0"], shell=True)
 			
 			#Else add route to non-gateway node
-			else:
+			if should_add_gateway and my_ip_address != gateway_node_ip:
 				print("Adding route to gateway!")
 				cmd_string = "sudo ip route add default via " + gateway_node_ip
+				should_add_gateway = False
 				subprocess.call([cmd_string], shell=True)
                             
 ##			ready_to_read,ready_to_write,in_error = select.select(self.socket_list , [], [])
@@ -191,6 +197,8 @@ class MaestroSocket:
 							print(client_ip)
 							print("The best gateway node for this client is: ")
 							print(gateway_node_ip)
+							print("Now printing controller graph: ")
+							pprint(self.controller_graph._graph)
 							#gateway_node_ip= "192.168.1.1"
 							
 							print("Now sending gateway IP to client")
