@@ -1,0 +1,22 @@
+To find devices on the network:
+    1) figure out your IP address (most devices: ifconfig - then grab the ipv4 address)
+        --- Referred to as <IP_ADDRESS> from now on
+    2) run the command $ sudo nmap -sn <IP_ADDRESS>/24
+        --- the /24 is to let it scan all the open ports on that IP
+    3) A pi will appear in the results as
+            Nmap scan report for 10.0.0.197
+            Host is up (0.0046s latency).
+            MAC Address: B8:27:EB:68:E8:07 (Raspberry Pi Foundation)
+
+//On Nour's Laptop (en0), others may be different names
+TCPDUMP to read capture all INCOMING packets
+    $ tcpdump -i en0 ip -X dst host <IP_ADDRESS>
+
+TCPDUMP to read capture all OUTGOING packets
+    $ tcpdump -i en0 ip -X src host <IP_ADDRESS>
+
+To capture 100 packets on current network and save them
+    $ sudo tcpdump -c 100 -w ~/Desktop/capture.pcap
+
+PINGING JUST ONE PACKET
+    $ ping <IP_TO_PING> -c 1

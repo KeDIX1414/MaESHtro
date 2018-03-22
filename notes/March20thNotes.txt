@@ -1,0 +1,14 @@
+First issue we ran into:
+    The Pi with the WiFi dongle would not detect the WiFi at all (said no interfaces available)
+    FIX:
+        run $ sudo dhcpcd -q -d
+    WHY:
+        The issue was that dhcpcd was not booted up, this forced it to start running again.
+
+STEPS:
+- Add route (to Katherine's computer on Nour's network)
+            $ sudo ip route add default via 10.0.0.133
+- go to sockets folder
+            $ cd ~/MaESHtro/sockets/
+- run the script that connects to google and attempts to initiate an HTTP request
+            $ python test.c
