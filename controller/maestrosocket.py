@@ -193,6 +193,7 @@ class MaestroSocket:
 							print(gateway_node_ip)
 							#gateway_node_ip= "192.168.1.1"
 							
+							print("Now sending gateway IP to client")
 							sock.send(gateway_node_ip.encode())
 						else:
 							sock.close()
