@@ -5,6 +5,8 @@ import json
 import ast
 import commands
 import subprocess
+import time
+import os 
 
 class MaestroSocket:
 	def __init__(self, ip, port, server=False, username="KeDIX1414"):
@@ -28,35 +30,66 @@ class MaestroSocket:
 				sys.exit()
 
 	def client_loop(self):
-		# my_ip_address = subprocess.check_output(["hostname", "-f"])
-		#test = subprocess.check_output(["cat /etc/network/interfaces"], shell=True)
-		#print(test)
-		my_ip_address = subprocess.check_output(["sed -n -e 's/^.*address //p' /etc/network/interfaces"], shell=True)
-		print("my ip address is ")
-		print(my_ip_address)
+		my_ip_address = ""
 		gateway_node_ip = ""
+
+		try: 
+			my_ip_address = subprocess.check_output(["sed -n -e 's/^.*address //p' /etc/network/interfaces"], shell=True)
+			print("my ip address is ")
+			print(my_ip_address)
+		except Exception as e: 
+			print(str(e))
+			print("Could not run 'sed' command to find client IP address")
+		
+
 		while 1:
-                        my_file = open('client-neighbors.json', 'r')
-                        msg = my_file.read()
-                        print('1')
-                        self.sock.send(msg.encode())
-                        print('2')
-                        data = self.sock.recv(1024)
-                        print('3')
-                        gateway_node_ip = data.decode()
-                        print("gateway_node_ip in client is: ")
-                        print(gateway_node_ip)
+                    
+			my_file = open('client-neighbors.json', 'r')
+			msg = my_file.read()
+			
+			# Sleep for 5 seconds so as not to overload server
+			time.sleep(5)
+
+			try: 
+				self.sock.send(msg.encode())
+			except Exception as e: 
+				print(str(e))
+				print("Could not send client-neighbors.json to server")
+
+			try: 
+				data = self.sock.recv(1024)
+				gateway_node_ip = data.decode()
+				print("gateway_node_ip in client is: ")
+				print(gateway_node_ip)
+			except Exception as e: 
+				print(str(e))
+				print("Could not receive gateway IP address from server")
+
+			# Compare new gateway node to old gateway node. If different, delete default route
+			# Do not change gateway if node already has functioning gateway
+			# NOTE: this will not work if gateway_node_ip is not string type
+			# TODO: test value of old_gateway
+
+			old_gateway = os.environ["GATEWAY_NODE_IP"]
+			print("Client old gateway IP is: ")
+			print(old_gateway)
+
+			if old_gateway != gateway_node_ip and old_gateway == "": 
+				os.environ["GATEWAY_NODE_IP"] = gateway_node_ip
+				print("I have a new gateway node now!")
+				subprocess.call(["sudo ip route del ", "0/0"], shell=True)
+
 			print("and my ip address is: ")
 			print (my_ip_address)
+
 			#If current client is the gate, delete the route
-                        if my_ip_address == gateway_node_ip: 
-                            subprocess.call(["sudo ip route del ", "0/0"], shell=True)
-			#Add route to non-gateway node
-                        else:
-                            cmd_string = "sudo ip route add default via " + gateway_node_ip
-                            subprocess.call([cmd_string], shell=True)
-                            #output = subprocess.call(["sudo ip route add default via ", gateway_node_ip], shell=True)
-                            #print(output)
+			if my_ip_address == gateway_node_ip: 
+				subprocess.call(["sudo ip route del ", "0/0"], shell=True)
+			
+			#Else add route to non-gateway node
+			else:
+				cmd_string = "sudo ip route add default via " + gateway_node_ip
+				subprocess.call([cmd_string], shell=True)
                             
 ##			ready_to_read,ready_to_write,in_error = select.select(self.socket_list , [], [])
 ##			for sock in ready_to_read:
@@ -106,14 +139,15 @@ class MaestroSocket:
 						data = sock.recv(1024)
 						if data:
 							message = data.decode()
-							#parse json (THIS ASSUMES MESSAGE IS A DOUBLE QUOTED STRING VALUE!!!)
 							parsed_client_json = ast.literal_eval(message)
+							print("Received client JSON received: ")
+							print(parsed_client_json)
+							
 							if parsed_client_json["is_gateway"] == True: 
 								gateway_node_ip = parsed_client_json["my_ip"]
 								print("gateway node ip in server loop is now: ")
 								print(gateway_node_ip)
-                                                        gateway_node_ip= "192.168.1.1"
-                                                    							#self.broadcast(sock, data)
+								# gateway_node_ip= "192.168.1.1"
 							sock.send(gateway_node_ip.encode())
 						else:
 							sock.close()
