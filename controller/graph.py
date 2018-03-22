@@ -43,7 +43,7 @@ class Graph(object):
         if is_gateway == True: 
             self.all_gateways.add(client_ip)
         else: 
-            if self.all_gateways.contains(client_ip): 
+            if client_ip in self.all_gateways: 
                 self.all_gateways.remove(client_ip)
 
     def add_connections_list(self, connections):
@@ -82,7 +82,12 @@ class Graph(object):
         return_path_length = 1000000
 
         for g in self.all_gateways:
-            path_length = len(self.find_path(client_ip, g))
+            path_consider = self.find_path(client_ip, g)
+            print("path consider is: ")
+            print(path_consider)
+            path_length = len(path_consider)
+            print("length of path consider is: ")
+            print(path_length)
             if path_length < return_path_length: 
                 return_gateway = g
         return return_gateway
@@ -92,10 +97,10 @@ class Graph(object):
         dist = {}
         prev = {}
         for v in self.all_nodes: 
-            dist[v] = math.inf
+            dist[v] = 100000
             prev[v] = None
 
-            q.add(v)
+            q.append(v)
 
         dist[client_ip] = 0
 
@@ -119,16 +124,19 @@ class Graph(object):
 
     def find_path(self, node1, node2, path=[]):
         """ Find any path between node1 and node2 (may not be shortest) """
-
+        print("in find_path function in graph.py")
         path = path + [node1]
         if node1 == node2:
+            print("returning path in find_path function")
             return path
         if node1 not in self._graph:
+            print("node1 not in self._graph")
             return None
         for node in self._graph[node1]:
             if node not in path:
                 new_path = self.find_path(node, node2, path)
                 if new_path:
+                    print("returning new_path")
                     return new_path
         return None
 

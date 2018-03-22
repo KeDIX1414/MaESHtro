@@ -3,7 +3,8 @@ import socket
 import sys
 
 if __name__ == "__main__":
-    sock = MaestroSocket('0.0.0.0', 20001, server=True)
+    # IP HERE REMAINS EMPTY
+    sock = MaestroSocket('', 20001, server=True)
     sock.server_loop()
 # 	socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 #	socket.bind(("127.0.0.1", 20001))

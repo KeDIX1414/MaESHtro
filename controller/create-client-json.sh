@@ -21,16 +21,10 @@ fi
 #TODO: Add your range of IPs you'd like to ping here
 echo "'neighbors': [" >> client-neighbors.json
 
-PING_OUTPUT="$(ping -c 1 www.facebook.com | grep "1 received")"
+PING_OUTPUT="$(ping -c 1 192.168.1.1 | grep "1 received")"
 
 if ! [ -z "$PING_OUTPUT" ]; then 
-	echo "'www.facebook.com'," >> client-neighbors.json
-fi 
-
-PING_OUTPUT="$(ping -c 1 www.reddit.com | grep "1 received")"
-
-if ! [ -z "$PING_OUTPUT" ]; then 
-	echo "'www.reddit.com'" >> client-neighbors.json
+	echo "'192.168.1.1'" >> client-neighbors.json
 fi 
 
 echo "]" >> client-neighbors.json
