@@ -1,3 +1,12 @@
+-Get client to send its current assigned gateway to server? Because right now that check won't work right
+
+
+
+
+
+
+
+
 X Implement logic where if you to switch gateway, delete default routes
 
 X Handle errors
@@ -8,3 +17,7 @@ Start making the controller's graph that will determine routing and gateway sugg
 	X Dynamic gateway: First make sure client sticks with a gateway that works for it and not switch between two possibilities unless its original gateway goes down
 
 	Multihop: Create a graph
+
+
+-In server while loop, every 100 iterations check if you've gotten a connection from each node. If not, delete that node and all instances of it in the graph
+-Add node in dict with empty set
