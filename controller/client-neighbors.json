@@ -1,6 +1,6 @@
 {
-'my_ip': '192.168.1.2',
-'is_gateway': False,
+'my_ip': '192.168.1.1',
+'is_gateway': True,
 'neighbors': [
 'www.facebook.com',
 'www.reddit.com'

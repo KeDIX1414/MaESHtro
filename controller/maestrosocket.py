@@ -21,7 +21,7 @@ class MaestroSocket:
 			self.client_list = [self.sock]
 		else:
 			try:
-				self.sock.connect(('127.0.0.4', 20001))
+				self.sock.connect(('192.168.1.2', 20001))
 				print('You have been connected to the remote host.')
 				#msg = "Username:" + username
 				#self.sock.send(msg.encode())
@@ -198,7 +198,7 @@ class MaestroSocket:
 							print("The best gateway node for this client is: ")
 							print(gateway_node_ip)
 							print("Now printing controller graph: ")
-							pprint(self.controller_graph._graph)
+							print(self.controller_graph._graph)
 							#gateway_node_ip= "192.168.1.1"
 							
 							print("Now sending gateway IP to client")
