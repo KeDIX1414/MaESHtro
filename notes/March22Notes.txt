@@ -1,6 +1,15 @@
 To drop all packets being received on a specific port so that the
 kernel stops responding to packets as well as forwarding them around
-    $ sudo iptables -t raw -A PREROUTING -p tcp --dport <PORT WE'RE KILLING> DROP
+    $ sudo iptables -t raw -A PREROUTING -p tcp --dport <PORT WE'RE KILLING> -j DROP
 
 DELETING A ROUTE FROM A PI to CONTROLLER AT 192.168.169.1
     $ sudo ip route del default via 192.168.169.1 dev wlan1
+
+
+TODO OVER WEEKEND:
+==================
+> Remove hardcoding of IP Addresses (HIGH PRIORITY) because EVERYTHING CRASHES AND BURNS on reboot if we forget to modify to new IP
+    - plans for that:
+        - command line, run ifconfig and grep for the necessary ip string, and use that
+
+> DEFAULT PI KEYBOARD TO US (ffs)
