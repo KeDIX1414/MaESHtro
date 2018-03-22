@@ -21,6 +21,7 @@ class MaestroSocket:
 			self.client_list = [self.sock]
 		else:
 			try:
+                                # THIS IS THE IP AND PORT OF THE SERVER. TO CHNAGE PORT, CHANGE HERE ADN SERVER.PY
 				self.sock.connect(('127.0.0.4', 20001))
 				print('You have been connected to the remote host.')
 				#msg = "Username:" + username
@@ -187,10 +188,22 @@ class MaestroSocket:
 							# Find this node's closest gateway and send it to them
 							if is_gateway == True: 
 								gateway_node_ip = client_ip
-							else: 
+							else:
+                                                                print("Trying to find a gateway...")
+                                                                print("Possible gateways are: ")
+                                                                for g in self.controller_graph.all_gateways:
+                                                                    print(g)
+                                                                
+                                                                print("Now finding best gateway with non-shitty algorithm")
+                                                                gateway_node_ip = self.controller_graph.find_best_gateway_better(client_ip)
+                                                                print("Gateway with better algorithm is: ")
+                                                                print(gateway_node_ip)
+                                                                
 								print("Now finding best gateway with shitty algorithm")
 								# TODO: Test better algorithm too
 								gateway_node_ip = self.controller_graph.find_best_gateway(client_ip)
+								print("Gateway with shitty algorithm is: ")
+								print(gateway_node_ip)
 
 							# Debugging print statements
 							print("This client's ip is: ")
@@ -198,7 +211,7 @@ class MaestroSocket:
 							print("The best gateway node for this client is: ")
 							print(gateway_node_ip)
 							print("Now printing controller graph: ")
-							pprint(self.controller_graph._graph)
+							print(self.controller_graph._graph)
 							#gateway_node_ip= "192.168.1.1"
 							
 							print("Now sending gateway IP to client")
