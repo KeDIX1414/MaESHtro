@@ -1,0 +1,39 @@
+using tcpdump on pi
+http://www.ronnutter.com/raspberry-pi-intro-to-tcpdump/
+
+pi iptables
+https://blog.onetwentyseven001.com/iptables-security-part-ii/#.Wqmjf2bMzzI
+
+nmap and shit for listening 
+https://www.lisenet.com/2013/finding-open-ports-and-listening-services-on-linux/
+
+list of tcp/udp ports
+https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers
+
+
+USE $ sudo nc -l -p <PORTNUMBER> 
+to specifically open a port for listening (this fixes the SYN/RST to allow handshake to continue through to SYN/ACK instead)
+|___> This is to be done in a separate shell since it prevents you from doing anything else (unless of course if you want to run it in the background and just forget about it, PS that is not recommended on an unsecured network since it opens up that port to security breaches!)
+
+==============================================================
+
+Methodology if Wireshark gets stubborn on computer and refuses to see traffic between pi and computer
+
+1. Run tcpdump on the pi
+	$ sudo tcpdump -w filename.pcap
+
+2. Send whatever packets to the pi and go wild with your attempt at connecting! (Katherine code on laptop with sockets)
+
+3. Stop tcpdump (ctrl+C) on pi
+
+4. Using laptop that has Wireshark, SCP the pcap file from where it saved on the pi (same directory you ran tcpdump in) to your computer (example here is path on Nour’s computer), enter the pi’s password when prompted
+
+	$ scp pi@10.0.0.197:~/Desktop/MaESHtro/test.pcap /Users/nourhussein/Desktop/UPenn/Spring2018/CIS401/gitstuff/MaESHtro
+	$ raspberry //the password
+
+5. Open the .pcap file in Wireshark and voila (note, if checksum validation is not enabled, you need enable it from Wireshark’s Preferences for both IPV4 and TCP, by:
+	Preferences->Protocols->IPV4(or TCP)->Validate the IPV4(or TCP) checksum if possible
+
+6. Find the relevant packets in Wireshark GUI by adjusting the filters (ip.src==<SOURCE_IP> for example)
+
+========================================================================

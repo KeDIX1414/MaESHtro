@@ -1,0 +1,9 @@
+https://www.devdungeon.com/content/using-libpcap-c
+    website for pcap capture
+
+PACKET INJECTION RESOURCES
+    https://ubuntuforums.org/showthread.php?t=525762
+    http://www.microhowto.info/howto/send_an_arbitrary_ethernet_frame_using_libpcap.html
+
+WHAT IS AN IP PACKET
+    http://mike.passwall.com/networking/samplepacket.html
