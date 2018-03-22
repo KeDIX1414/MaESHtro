@@ -167,11 +167,11 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
-    if (strcmp(inet_ntoa(og_ip->ip_src), "172.20.10.6") == 0) {
-        sin.sin_addr.s_addr = inet_addr ("172.217.15.68");
+    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
+        sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
         printf("This packet is coming from the pi\n");
     } else {
-        sin.sin_addr.s_addr = inet_addr ("172.20.10.6");
+        sin.sin_addr.s_addr = inet_addr ("6.6.1.5");
         printf("This packet is coming from google\n");
     }
     memset (datagram, 0, 4096);    /* zero out the buffer */
@@ -190,12 +190,12 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (strcmp(inet_ntoa(og_ip->ip_src), "172.20.10.6") == 0) {
-        iph->ip_src.s_addr = inet_addr("172.20.10.6");/* SYN's can be blindly spoofed */
-        iph->ip_dst.s_addr = inet_addr("172.217.15.68");
+    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
+        iph->ip_src.s_addr = inet_addr("10.0.0.244");/* SYN's can be blindly spoofed */
+        iph->ip_dst.s_addr = inet_addr("172.217.15.100");
     } else {
-        iph->ip_src.s_addr = inet_addr("172.217.15.68");/* SYN's can be blindly spoofed */
-        iph->ip_dst.s_addr = inet_addr("172.20.10.6");
+        iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
+        iph->ip_dst.s_addr = inet_addr("6.6.1.5");
     }
     
     tcph->th_sport = og_tcp->th_sport;    /* arbitrary port */
@@ -227,10 +227,12 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
         printf ("Warning: Cannot set HDRINCL!\n");
     int count = 0;
-    if (sendto (s, datagram, iph->ip_len,    0, (struct sockaddr *) &sin, sizeof (sin)) < 0)
+    if (sendto (s, datagram, iph->ip_len,    0, (struct sockaddr *) &sin, sizeof (sin)) < 0) {
         printf ("error\n");
-    else
+        recv(s, datagram, sizeof(datagram), 0);
+    } else {
         printf ("success.\n ");
+    }
 }
 
 void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int payload_len, int total_len) {
@@ -244,11 +246,11 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
     
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
-    if (strcmp(inet_ntoa(og_ip->ip_src), "172.20.10.2") == 0) {
-        sin.sin_addr.s_addr = inet_addr ("172.217.15.68");
+    if (strcmp(inet_ntoa(og_ip->ip_src), "10.0.0.159") == 0) {
+        sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
         printf("This packet is coming from the pi\n");
     } else {
-        sin.sin_addr.s_addr = inet_addr ("172.20.10.2");
+        sin.sin_addr.s_addr = inet_addr ("10.0.0.159");
         printf("This packet is coming from google\n");
     }
     memset (datagram, 0, 4096);    /* zero out the buffer */
@@ -267,12 +269,12 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (strcmp(inet_ntoa(og_ip->ip_src), "172.20.10.2") == 0) {
-        iph->ip_src.s_addr = inet_addr("172.20.10.2");/* SYN's can be blindly spoofed */
-        iph->ip_dst.s_addr = inet_addr("172.217.15.68");
+    if (strcmp(inet_ntoa(og_ip->ip_src), "10.0.0.159") == 0) {
+        iph->ip_src.s_addr = inet_addr("10.0.0.133");/* SYN's can be blindly spoofed */
+        iph->ip_dst.s_addr = inet_addr("172.217.15.100");
     } else {
-        iph->ip_src.s_addr = inet_addr("172.217.15.68");/* SYN's can be blindly spoofed */
-        iph->ip_dst.s_addr = inet_addr("172.20.10.2");
+        iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
+        iph->ip_dst.s_addr = inet_addr("10.0.0.159");
     }
     
     icmph->icmp_type = og_icmp->icmp_type;
@@ -310,23 +312,25 @@ void handlePkt(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *pac
     struct ip *ip = get_ip_header(packet);
     if (ip->ip_p == 6) {
         struct tcphdr *tcp = get_tcp_header(packet);
+        uint16_t iplen = (ip->ip_len >> 8) | (ip->ip_len << 8);
         printf("\n\n\n");
-        if (ip->ip_len >> 8 > sizeof(struct ip) + tcp->th_off*4) {
-            char *payload = get_payload(packet, sizeof(struct ip) + tcp->th_off*4, ip->ip_len >> 8);
-            int payload_len = (ip->ip_len >> 8) - (sizeof(struct ip) + tcp->th_off*4);
-            inject_tcp(ip, tcp, payload, payload_len, ip->ip_len >> 8);
+        if (iplen > sizeof(struct ip) + tcp->th_off*4) {
+            char *payload = get_payload(packet, sizeof(struct ip) + tcp->th_off*4, iplen);
+            int payload_len = (iplen) - (sizeof(struct ip) + tcp->th_off*4);
+            inject_tcp(ip, tcp, payload, payload_len, iplen);
         } else {
-            inject_tcp(ip, tcp, NULL, 0, ip->ip_len >> 8);
+            inject_tcp(ip, tcp, NULL, 0, iplen);
         }
     }
     else if (ip->ip_p == 1) {
         struct icmphdr *icmp = get_icmp_header(packet);
-        if (ip->ip_len >> 8 > sizeof(struct ip) + sizeof(struct icmphdr)) {
-            char *payload = get_payload(packet, sizeof(struct ip) + sizeof(struct icmphdr), ip->ip_len >> 8);
-            int payload_len = (ip->ip_len >> 8) - (sizeof(struct ip) + sizeof(struct icmphdr));
-            inject_icmp(ip, icmp, payload, payload_len, ip->ip_len >> 8);
+        uint16_t iplen = (ip->ip_len >> 8) | (ip->ip_len << 8);
+        if (iplen > sizeof(struct ip) + sizeof(struct icmphdr)) {
+            char *payload = get_payload(packet, sizeof(struct ip) + sizeof(struct icmphdr), iplen);
+            int payload_len = (iplen) - (sizeof(struct ip) + sizeof(struct icmphdr));
+            inject_icmp(ip, icmp, payload, payload_len, iplen);
         } else {
-            inject_icmp(ip, icmp, NULL, 0, ip->ip_len >> 8);
+            inject_icmp(ip, icmp, NULL, 0, iplen);
         }
     }
     else if (ip->ip_p == 17) {
@@ -373,13 +377,13 @@ int main(int argc, char **argv)
      net = 0;
      mask = 0;
      }*/
-    descr = pcap_open_live("en0",1000,0, 1000,errbuf);
+    descr = pcap_open_live("wlan0",1000,0, 1000,errbuf);
     if(descr == NULL)
     {
         printf("pcap_open_live(): %s\n",errbuf);
         exit(1);
     }
-    if (pcap_compile(descr, &fp, "src host 172.20.10.2 and dst host 172.217.15.100 and icmp", 0, net) == -1) {
+    if (pcap_compile(descr, &fp, "(src host 10.0.0.159 and dst host 172.217.15.100) or (src host 172.217.15.100 and dst host 10.0.0.133)", 0, net) == -1) {
         fprintf(stderr, "Couldn't parse filter\n");
         exit(1);
     }
@@ -421,7 +425,7 @@ int main(int argc, char **argv)
     /*while (pcap_next_ex(descr, &hdr, &packet)) {
         handlePkt(hdr, packet);
     }*/
-    pcap_loop(descr, 10, handlePkt, 0 );
+    pcap_loop(descr, 1000, handlePkt, 0 );
     pcap_close(descr);
     
     return 0;
