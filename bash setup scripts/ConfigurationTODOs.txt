@@ -1,0 +1,7 @@
+How to default to US keyboard on raspberryPi
+
+$ cd ~/etc/defaults/
+>> open keyboard in favorite text editor (may need to sudo this)
+>> change the default to us by chaging this line
+    XKBLAYOUT="us"
+        from whatever it currently is (most likely XKBLAYOUT="uk")
