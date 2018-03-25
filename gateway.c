@@ -19,6 +19,7 @@
 #define ETHER_SIZE 14
 int count = 0;
 
+char my_ip[] = "10.0.0.197";
 int linkhdrlen;
 pcap_t* descr;
 
@@ -67,7 +68,7 @@ char *get_payload(const u_char *packet, int starting_point, int packet_length) {
     char *payload_ptr = (char *)(packet + starting_point + linkhdrlen);
     memcpy(payload, payload_ptr, packet_length - starting_point);
     return payload;
-    
+
 }
 
 void PrintData (unsigned char* data , int Size)
@@ -83,21 +84,21 @@ void PrintData (unsigned char* data , int Size)
             {
                 if(data[j]>=32 && data[j]<=128)
                     printf("%c",(unsigned char)data[j]); //if its a number or alphabet
-                
+
                 else printf("."); //otherwise print a dot
             }
             printf("\n");
         }
-        
+
         if(i%16==0) printf("   ");
         printf(" %02X",(unsigned int)data[i]);
-        
+
         if( i==Size-1)  //print the last spaces
         {
             for(j=0;j<15-i%16;j++) printf("   "); //extra spaces
-            
+
             printf("         ");
-            
+
             for(j=i-i%16 ; j<=i ; j++)
             {
                 if(data[j]>=32 && data[j]<=128) printf("%c",(unsigned char)data[j]);
@@ -133,11 +134,11 @@ uint16_t tcp_checksum(const void *buff, size_t len, in_addr_t src_addr, in_addr_
             sum = (sum & 0xFFFF) + (sum >> 16);
         len -= 2;
     }
-    
+
     if ( len & 1 )
         // Add the padding if the packet lenght is odd          //
         sum += *((uint8_t *)buf);
-    
+
     // Add the pseudo-header                                        //
     sum += *(ip_src++);
     sum += *ip_src;
@@ -145,13 +146,13 @@ uint16_t tcp_checksum(const void *buff, size_t len, in_addr_t src_addr, in_addr_
     sum += *ip_dst;
     sum += htons(IPPROTO_TCP);
     sum += htons(length);
-    
+
     // Add the carries                                              //
     while (sum >> 16) {
         sum = (sum & 0xFFFF) + (sum >> 16);
     }
     uint16_t final_sum = sum;
-    
+
     // Return the one's complement of sum
     return ( (uint16_t)(~sum)  );
 }
@@ -163,8 +164,8 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     struct ip *iph = (struct ip *) datagram;
     struct tcphdr *tcph = (struct tcphdr *) (datagram + sizeof (struct ip));
     struct sockaddr_in sin;
-    
-    
+
+
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
     if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
@@ -175,7 +176,7 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
         printf("This packet is coming from google\n");
     }
     memset (datagram, 0, 4096);    /* zero out the buffer */
-    
+
     /* we'll now fill in the ip/tcp header values, see above for explanations */
     iph->ip_hl = 5;
     iph->ip_v = og_ip->ip_v;
@@ -191,13 +192,13 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
     if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
-        iph->ip_src.s_addr = inet_addr("10.0.0.196");/* SYN's can be blindly spoofed */
+        iph->ip_src.s_addr = inet_addr(my_ip);/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = inet_addr("172.217.15.100");
     } else {
         iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = inet_addr("6.6.1.5");
     }
-    
+
     tcph->th_sport = og_tcp->th_sport;    /* arbitrary port */
     tcph->th_dport = og_tcp->th_dport;
     tcph->th_seq = og_tcp->th_seq;/* in a SYN packet, the sequence is a random */
@@ -211,10 +212,10 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     tcph->th_sum = 0;
     // add the payload
     memcpy(datagram + sizeof (struct ip) + sizeof (struct tcphdr), payload, payload_len);
-    
+
     iph->ip_sum = csum ((unsigned short *) datagram, iph->ip_len >> 1);
     tcph->th_sum = tcp_checksum(tcph, 20 + payload_len, iph->ip_src.s_addr, iph->ip_dst.s_addr);
-    
+
     struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
     printf("Printing the IP header\n");
     PrintData((unsigned char *)datagram, iph->ip_hl*4);
@@ -242,8 +243,8 @@ void inject_udp(struct ip *og_ip, struct udp_header *og_udp, char *payload, int 
     struct ip *iph = (struct ip *) datagram;
     struct udp_header *udph = (struct udp_header *) (datagram + sizeof (struct ip));
     struct sockaddr_in sin;
-    
-    
+
+
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
     if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
@@ -254,7 +255,7 @@ void inject_udp(struct ip *og_ip, struct udp_header *og_udp, char *payload, int 
         printf("This packet is coming from google\n");
     }
     memset (datagram, 0, 4096);    /* zero out the buffer */
-    
+
     /* we'll now fill in the ip/tcp header values, see above for explanations */
     iph->ip_hl = 5;
     iph->ip_v = og_ip->ip_v;
@@ -270,25 +271,25 @@ void inject_udp(struct ip *og_ip, struct udp_header *og_udp, char *payload, int 
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
     if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
-        iph->ip_src.s_addr = inet_addr("10.0.0.196");/* SYN's can be blindly spoofed */
+        iph->ip_src.s_addr = inet_addr(my_ip);/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = inet_addr("172.217.15.100");
     } else {
         iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = inet_addr("6.6.1.5");
     }
-    
+
     udph->udph_srcport = og_udp->udph_srcport;
     udph->udph_destport = og_udp->udph_destport;
     udph->udph_len = og_udp->udph_len;
     udph->udph_chksum = 0;
-    
-    
+
+
     // add the payload
     memcpy(datagram + sizeof (struct ip) + sizeof (struct udp_header), payload, payload_len);
-    
+
     iph->ip_sum = csum ((unsigned short *) datagram, iph->ip_len >> 1);
     udph->udph_chksum = tcp_checksum(udph, 20 + payload_len, iph->ip_src.s_addr, iph->ip_dst.s_addr);
-    
+
     struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
     printf("Printing the IP header\n");
     PrintData((unsigned char *)datagram, iph->ip_hl*4);
@@ -316,8 +317,8 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
     struct ip *iph = (struct ip *) datagram;
     struct icmphdr *icmph = (struct icmphdr *) (datagram + sizeof (struct ip));
     struct sockaddr_in sin;
-    
-    
+
+
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
     if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
@@ -328,7 +329,7 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
         printf("This packet is coming from google\n");
     }
     memset (datagram, 0, 4096);    /* zero out the buffer */
-    
+
     /* we'll now fill in the ip/tcp header values, see above for explanations */
     iph->ip_hl = 5;
     iph->ip_v = og_ip->ip_v;
@@ -350,18 +351,18 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
         iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = inet_addr("10.0.0.196");
     }
-    
+
     icmph->icmp_type = og_icmp->icmp_type;
     icmph->icmp_code = og_icmp->icmp_code;
     icmph->icmp_chk = 0;
-    
-    
+
+
     // add the payload
     memcpy(datagram + sizeof (struct ip) + sizeof (struct icmphdr), payload, payload_len);
-    
+
     iph->ip_sum = csum ((unsigned short *) datagram, iph->ip_len >> 1);
     icmph->icmp_chk = csum((unsigned short *)icmph, (sizeof(struct icmphdr) + payload_len) >> 1);
-    
+
     struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
     /*printf("Printing the IP header\n");
     PrintData(datagram, iph->ip_hl*4);
@@ -418,11 +419,11 @@ void handlePkt(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *pac
         } else {
             inject_udp(ip, udp, NULL, 0, iplen);
         }
-        
+
     } else {
         printf("unsupported protocol\n");
     }
-    
+
     /*printf("Printing the IP header\n");
     PrintData(packet + linkhdrlen, ip->ip_hl*4);
     printf("Printing the TCP header\n");
@@ -444,9 +445,9 @@ int main(int argc, char **argv)
     struct bpf_program fp;
     bpf_u_int32 mask;
     bpf_u_int32 net;
-    
+
     u_char *ptr; /* printing out hardware header info */
-    
+
     /* grab a device to peak into... */
     dev = pcap_lookupdev(errbuf);
     if(dev == NULL)
@@ -466,7 +467,15 @@ int main(int argc, char **argv)
         printf("pcap_open_live(): %s\n",errbuf);
         exit(1);
     }
-    if (pcap_compile(descr, &fp, "(src host 6.6.1.5 and dst host 172.217.15.100) or (src host 172.217.15.100 and dst host 10.0.0.196)", 0, net) == -1) {
+    char inter_arg[] = "(src host 6.6.1.5 and dst host 172.217.15.100) or (src host 172.217.15.100 and dst host ";
+    int pcap_compile_arg_len = strlen(my_ip) + strlen(inter_arg) + 1;
+    char pcap_compile_arg [pcap_compile_arg_len];
+    strcat(pcap_compile_arg, inter_arg);
+    strcat(pcap_compile_arg, my_ip);
+    strcat(pcap_compile_arg, ")");
+    strcat(pcap_compile_arg, my_ip);
+    strcat(pcap_compile_arg, ")");
+    if (pcap_compile(descr, &fp, pcap_compile_arg, 0, net) == -1) {
         fprintf(stderr, "Couldn't parse filter\n");
         exit(1);
     }
@@ -474,43 +483,42 @@ int main(int argc, char **argv)
         fprintf(stderr, "Couldn't install filter\n");
         exit(1);
     }
-    
+
     int linktype;
-    
+
     // Determine the datalink layer type.
     if ((linktype = pcap_datalink(descr)) < 0)
     {
         printf("pcap_datalink(): %s\n", pcap_geterr(descr));
         return 1;
     }
-    
+
     // Set the datalink layer header size.
     switch (linktype)
     {
         case DLT_NULL:
             linkhdrlen = 4;
             break;
-            
+
         case DLT_EN10MB:
             linkhdrlen = 14;
             break;
-            
+
         case DLT_SLIP:
         case DLT_PPP:
             linkhdrlen = 24;
             break;
-            
+
         default:
             printf("Unsupported datalink (%d)\n", linktype);
             return 1;
     }
-    
+
     /*while (pcap_next_ex(descr, &hdr, &packet)) {
         handlePkt(hdr, packet);
     }*/
     pcap_loop(descr, 1000, handlePkt, 0 );
     pcap_close(descr);
-    
+
     return 0;
 }
-
