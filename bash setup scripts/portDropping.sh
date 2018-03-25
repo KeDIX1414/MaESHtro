@@ -6,4 +6,4 @@
 sudo iptables -t raw -A PREROUTING -p tcp --dport 4 -j DROP
 
 #kills port 8
-sudo iptables -t raw -A PREROUTING -p tcp --dport 8 -j DROP
+#sudo iptables -t raw -A PREROUTING -p tcp --dport 8 -j DROP
