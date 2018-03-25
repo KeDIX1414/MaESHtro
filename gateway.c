@@ -321,11 +321,11 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
 
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
-    if (strcmp(inet_ntoa(og_ip->ip_src), "10.0.0.159") == 0) {
+    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
         sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
         printf("This packet is coming from the pi\n");
     } else {
-        sin.sin_addr.s_addr = inet_addr ("10.0.0.159");
+        sin.sin_addr.s_addr = inet_addr ("10.0.0.196");
         printf("This packet is coming from google\n");
     }
     memset (datagram, 0, 4096);    /* zero out the buffer */
@@ -344,12 +344,12 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (strcmp(inet_ntoa(og_ip->ip_src), "10.0.0.159") == 0) {
+    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
         iph->ip_src.s_addr = inet_addr("10.0.0.133");/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = inet_addr("172.217.15.100");
     } else {
         iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
-        iph->ip_dst.s_addr = inet_addr("10.0.0.159");
+        iph->ip_dst.s_addr = inet_addr("10.0.0.196");
     }
 
     icmph->icmp_type = og_icmp->icmp_type;
@@ -461,7 +461,7 @@ int main(int argc, char **argv)
      net = 0;
      mask = 0;
      }*/
-    descr = pcap_open_live("wlan0",1000,0, 1000,errbuf);
+    descr = pcap_open_live("wlan1",1000,0, 1000,errbuf);
     if(descr == NULL)
     {
         printf("pcap_open_live(): %s\n",errbuf);
@@ -473,7 +473,6 @@ int main(int argc, char **argv)
     strcat(pcap_compile_arg, inter_arg);
     strcat(pcap_compile_arg, my_ip);
     strcat(pcap_compile_arg, ")");
-
     strcat(pcap_compile_arg, my_ip);
     strcat(pcap_compile_arg, ")");
     if (pcap_compile(descr, &fp, pcap_compile_arg, 0, net) == -1) {
