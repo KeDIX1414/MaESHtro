@@ -9,7 +9,7 @@ echo "'my_ip': '${MY_IP}'," >> client-neighbors.json
 
 
 #Check if this is a gateway node (can ping google). If so, set gatway flag to True
-PING_OUTPUT="$(ping -c 1 www.google.com | grep "1 received")"
+PING_OUTPUT="$(ifconfig | grep "wlan1")"
 
 if ! [ -z "$PING_OUTPUT" ]; then 
 	echo "'is_gateway': True," >> client-neighbors.json
@@ -21,10 +21,10 @@ fi
 #TODO: Add your range of IPs you'd like to ping here
 echo "'neighbors': [" >> client-neighbors.json
 
-PING_OUTPUT="$(ping -c 1 192.168.1.1 | grep "1 received")"
+PING_OUTPUT="$(ping -c 1 6.6.1.5 | grep "1 received")"
 
 if ! [ -z "$PING_OUTPUT" ]; then 
-	echo "'192.168.1.1'" >> client-neighbors.json
+	echo "'6.6.1.5'" >> client-neighbors.json
 fi 
 
 echo "]" >> client-neighbors.json
