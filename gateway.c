@@ -479,7 +479,7 @@ int main(int argc, char **argv)
     strcat(pcap_compile_arg, ")");
     strcat(pcap_compile_arg, my_ip);
     strcat(pcap_compile_arg, ")");*/
-    if (pcap_compile(descr, &fp, "src port 4 or dst port 4", 0, net) == -1) {
+    if (pcap_compile(descr, &fp, "(src port 4 or src port 5) or (dst port 4 or dst port 5)", 0, net) == -1) {
         fprintf(stderr, "Couldn't parse filter\n");
         exit(1);
     }
