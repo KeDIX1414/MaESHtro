@@ -1,3 +1,3 @@
-#!/bin/bash
+#!/bin/sh
 
 sudo dhcpcd -q -d
