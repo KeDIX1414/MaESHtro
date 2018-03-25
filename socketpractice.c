@@ -129,12 +129,13 @@ main (void)
     printf ("Warning: Cannot set HDRINCL!\n");
   int count = 0;
   while (count < 10) {
-    if (sendto (s, datagram, iph->ip_len,	0, (struct sockaddr *) &sin, sizeof (sin)) < 0)		
+      if (sendto (s, datagram, iph->ip_len,	0, (struct sockaddr *) &sin, sizeof (sin)) < 0)	{
 	    printf ("error\n");
-    else
+      } else {
 	    printf ("success. ");
       sleep(2);
       recv(s, datagram, sizeof(datagram), 0);
+    }
     count++;
   }
 

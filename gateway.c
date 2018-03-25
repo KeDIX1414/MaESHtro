@@ -19,7 +19,7 @@
 #define ETHER_SIZE 14
 int count = 0;
 
-char my_ip[] = "10.0.0.197";
+char *my_ip;
 int linkhdrlen;
 pcap_t* descr;
 
@@ -168,10 +168,7 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
 
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
-    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
-        sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
-        printf("This packet is coming from the pi\n");
-    } else {
+    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") != 0) {
         sin.sin_addr.s_addr = inet_addr ("6.6.1.5");
         printf("This packet is coming from google\n");
     }
@@ -191,11 +188,12 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
+    if (strcmp(inet_ntoa(og_ip->ip_src), my_ip) != 0) {
         iph->ip_src.s_addr = inet_addr(my_ip);/* SYN's can be blindly spoofed */
-        iph->ip_dst.s_addr = inet_addr("172.217.15.100");
+        iph->ip_dst.s_addr = og_ip->ip_dst.s_addr;
     } else {
-        iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
+        iph->ip_src.s_addr = og_ip->ip_src.s_addr;
+        // TODO: make function to map ports to IP addresses
         iph->ip_dst.s_addr = inet_addr("6.6.1.5");
     }
 
@@ -247,10 +245,7 @@ void inject_udp(struct ip *og_ip, struct udp_header *og_udp, char *payload, int 
 
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
-    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
-        sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
-        printf("This packet is coming from the pi\n");
-    } else {
+    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") != 0) {
         sin.sin_addr.s_addr = inet_addr ("6.6.1.5");
         printf("This packet is coming from google\n");
     }
@@ -270,14 +265,14 @@ void inject_udp(struct ip *og_ip, struct udp_header *og_udp, char *payload, int 
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
+    if (strcmp(inet_ntoa(og_ip->ip_src), my_ip) != 0) {
         iph->ip_src.s_addr = inet_addr(my_ip);/* SYN's can be blindly spoofed */
-        iph->ip_dst.s_addr = inet_addr("172.217.15.100");
+        iph->ip_dst.s_addr = og_ip->ip_dst.s_addr;
     } else {
-        iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
+        iph->ip_src.s_addr = og_ip->ip_src.s_addr;
+        // TODO: make function to map ports to IP addresses
         iph->ip_dst.s_addr = inet_addr("6.6.1.5");
     }
-
     udph->udph_srcport = og_udp->udph_srcport;
     udph->udph_destport = og_udp->udph_destport;
     udph->udph_len = og_udp->udph_len;
@@ -321,11 +316,8 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
 
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
-    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
-        sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
-        printf("This packet is coming from the pi\n");
-    } else {
-        sin.sin_addr.s_addr = inet_addr ("10.0.0.196");
+    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") != 0) {
+        sin.sin_addr.s_addr = inet_addr ("6.6.1.5");
         printf("This packet is coming from google\n");
     }
     memset (datagram, 0, 4096);    /* zero out the buffer */
@@ -344,12 +336,13 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
-        iph->ip_src.s_addr = inet_addr("10.0.0.133");/* SYN's can be blindly spoofed */
-        iph->ip_dst.s_addr = inet_addr("172.217.15.100");
+    if (strcmp(inet_ntoa(og_ip->ip_src), my_ip) != 0) {
+        iph->ip_src.s_addr = inet_addr(my_ip);/* SYN's can be blindly spoofed */
+        iph->ip_dst.s_addr = og_ip->ip_dst.s_addr;
     } else {
-        iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
-        iph->ip_dst.s_addr = inet_addr("10.0.0.196");
+        iph->ip_src.s_addr = og_ip->ip_src.s_addr;
+        // TODO: make function to map ports to IP addresses
+        iph->ip_dst.s_addr = inet_addr("6.6.1.5");
     }
 
     icmph->icmp_type = og_icmp->icmp_type;
@@ -445,6 +438,7 @@ int main(int argc, char **argv)
     struct bpf_program fp;
     bpf_u_int32 mask;
     bpf_u_int32 net;
+    my_ip = argv[1];
 
     u_char *ptr; /* printing out hardware header info */
 
@@ -455,27 +449,26 @@ int main(int argc, char **argv)
         printf("%s\n",errbuf);
         exit(1);
     }
-    printf("DEV: %s\n",dev);
     /*if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
      fprintf(stderr, "Can't get netmask\n");
      net = 0;
      mask = 0;
      }*/
-    descr = pcap_open_live("wlan1",1000,0, 1000,errbuf);
+    descr = pcap_open_live(argv[2],1000,0, 1000,errbuf);
     if(descr == NULL)
     {
         printf("pcap_open_live(): %s\n",errbuf);
         exit(1);
     }
-    char inter_arg[] = "(src host 6.6.1.5 and dst host 172.217.15.100) or (src host 172.217.15.100 and dst host ";
+    /*char inter_arg[] = "(src host 6.6.1.5 and dst host 172.217.15.100) or (src host 172.217.15.100 and dst host ";
     int pcap_compile_arg_len = strlen(my_ip) + strlen(inter_arg) + 1;
     char pcap_compile_arg [pcap_compile_arg_len];
     strcat(pcap_compile_arg, inter_arg);
     strcat(pcap_compile_arg, my_ip);
     strcat(pcap_compile_arg, ")");
     strcat(pcap_compile_arg, my_ip);
-    strcat(pcap_compile_arg, ")");
-    if (pcap_compile(descr, &fp, pcap_compile_arg, 0, net) == -1) {
+    strcat(pcap_compile_arg, ")");*/
+    if (pcap_compile(descr, &fp, "src port 4 or dst port 4", 0, net) == -1) {
         fprintf(stderr, "Couldn't parse filter\n");
         exit(1);
     }

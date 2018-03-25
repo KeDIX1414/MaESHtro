@@ -343,7 +343,7 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (strcmp(inet_ntoa(og_ip->ip_src), "10.0.0.159") == 0) {
+    if (strcmp(inet_ntoa(og_ip->ip_src), "10.0.0.169") != 0) {
         iph->ip_src.s_addr = inet_addr("10.0.0.133");/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = inet_addr("172.217.15.100");
     } else {

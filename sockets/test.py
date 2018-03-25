@@ -3,6 +3,7 @@ import sys
 
 try:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("10.0.0.133", 4));
     print("Socket successfully created")
 except socket.error as err:
     print("socket creation failed with error %s" %(err))
@@ -10,13 +11,14 @@ except socket.error as err:
 # default port for socket
 port = 80
 
+addr = socket.gethostbyname('hello.com')
 
 # connecting to the server
 s.connect(("172.217.15.100",port))
 
 print("the socket has successfully connected to google")
 
-'''message = "GET / HTTP/1.1\r\n\r\n"
+message = "GET / HTTP/1.1\r\n\r\n"
 
 try :
     #Set the whole string
@@ -31,4 +33,4 @@ print('Message send successfully')
 #Now receive data
 reply = s.recv(4096)
  
-print(reply)'''
+print(reply)
