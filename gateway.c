@@ -158,7 +158,7 @@ uint16_t tcp_checksum(const void *buff, size_t len, in_addr_t src_addr, in_addr_
 }
 
 void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payload_len, int total_len) {
-    printf("The payload length is %d\n", payload_len);
+    printf("My ip is %s", my_ip);
     int s = socket (PF_INET, SOCK_RAW, IPPROTO_TCP);
     char datagram[4096];
     struct ip *iph = (struct ip *) datagram;
@@ -171,6 +171,9 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") != 0) {
         sin.sin_addr.s_addr = inet_addr ("6.6.1.5");
         printf("This packet is coming from google\n");
+    } else {
+	sin.sin_addr.s_addr = og_ip->ip_dst.s_addr;
+	printf("This packet is coming from the pi\n");
     }
     memset (datagram, 0, 4096);    /* zero out the buffer */
 
@@ -188,9 +191,11 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (strcmp(inet_ntoa(og_ip->ip_src), my_ip) != 0) {
+    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
         iph->ip_src.s_addr = inet_addr(my_ip);/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = og_ip->ip_dst.s_addr;
+	printf("The source ip is %s\n", inet_ntoa(iph->ip_src));
+	printf("The destination ip is %s\n", inet_ntoa(iph->ip_dst));
     } else {
         iph->ip_src.s_addr = og_ip->ip_src.s_addr;
         // TODO: make function to map ports to IP addresses
