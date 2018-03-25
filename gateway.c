@@ -168,12 +168,18 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
 
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
-    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") != 0) {
-        sin.sin_addr.s_addr = inet_addr ("6.6.1.5");
+    char *client;
+    if (og_tcp->th_dport == 4) {
+        client = "6.6.1.5"
+    } else {
+        client = "6.6.1.3"
+    }
+    if (strcmp(inet_ntoa(og_ip->ip_src), client) == 0) {
+        sin.sin_addr.s_addr = inet_addr (client);
         printf("This packet is coming from google\n");
     } else {
-	sin.sin_addr.s_addr = og_ip->ip_dst.s_addr;
-	printf("This packet is coming from the pi\n");
+        sin.sin_addr.s_addr = og_ip->ip_dst.s_addr;
+        printf("This packet is coming from the pi\n");
     }
     memset (datagram, 0, 4096);    /* zero out the buffer */
 
@@ -191,7 +197,7 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
+    if (strcmp(inet_ntoa(og_ip->ip_src), client) == 0) {
         iph->ip_src.s_addr = inet_addr(my_ip);/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = og_ip->ip_dst.s_addr;
 	printf("The source ip is %s\n", inet_ntoa(iph->ip_src));
@@ -199,7 +205,7 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     } else {
         iph->ip_src.s_addr = og_ip->ip_src.s_addr;
         // TODO: make function to map ports to IP addresses
-        iph->ip_dst.s_addr = inet_addr("6.6.1.5");
+        iph->ip_dst.s_addr = inet_addr(client);
     }
 
     tcph->th_sport = og_tcp->th_sport;    /* arbitrary port */
