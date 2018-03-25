@@ -50,7 +50,7 @@ class Graph(object):
         """ Add connections (list of tuple pairs) to graph """
 
         for node1, node2 in connections:
-            self.add(node1, node2)
+            self.add_connection(node1, node2)
 
     def add_connection(self, node1, node2):
         """ Add connection between node1 and node2 """
@@ -77,6 +77,7 @@ class Graph(object):
 
         return node1 in self._graph and node2 in self._graph[node1]
 
+    '''
     def find_best_gateway(self, client_ip): 
         return_gateway = ""
         return_path_length = 1000000
@@ -90,24 +91,43 @@ class Graph(object):
             print(path_length)
             if path_length < return_path_length: 
                 return_gateway = g
-        return return_gateway
+       return return_gateway
+    '''
 
-    def find_best_gateway_better(self, client_ip): 
+    def find_best_gateway(self, client_ip): 
         q = []
         dist = {}
         prev = {}
         for v in self.all_nodes: 
             dist[v] = 100000
             prev[v] = None
-
             q.append(v)
 
         dist[client_ip] = 0
 
         while len(q) > 0: 
-            u = min(dist, key=dist.get)
+            #print("dictionary keys are: ")
+            set_of_keys = set(dist.keys())
+            #print(set_of_keys)
+            set_of_queue = set(q)
+            intersection = set_of_queue.intersection(set_of_keys)
+            #print("intersection set is: ")
+            #print(intersection)
+
+            #u = min(dist, key=dist.get)
+            min_dist = 100000
+            for i in intersection: 
+                if dist[i] < min_dist: 
+                    min_dist = dist[i]
+                    u = i
+
+
+            #print("u is: ")
+            #print(u)
             q.remove(u)
             neighbors = self._graph[u]
+            #print("neighbors are: ")
+            #print(neighbors)
 
             for v in neighbors: 
                 alt = dist[u] + 1
@@ -115,7 +135,7 @@ class Graph(object):
                     dist[v] = alt
                     prev[v] = u
 
-        min_dist_gateway = 10000
+        min_dist_gateway = 100000
         return_gateway = ""
         for g in self.all_gateways: 
             if dist[g] < min_dist_gateway: 
@@ -142,3 +162,36 @@ class Graph(object):
 
     def __str__(self):
         return '{}({})'.format(self.__class__.__name__, dict(self._graph))
+
+'''
+graph = Graph()
+connections = [("0", "1"), ("1", "2"), ("2", "3"), ("1", "5"), ("0", "4")]
+graph.add_connections_list(connections)
+print(graph._graph)
+
+graph.all_nodes.add("0")
+graph.all_nodes.add("1")
+graph.all_nodes.add("2")
+graph.all_nodes.add("3")
+graph.all_nodes.add("4")
+graph.all_nodes.add("5")
+
+graph.has_seen.add("0")
+graph.has_seen.add("1")
+graph.has_seen.add("2")
+graph.has_seen.add("3")
+graph.has_seen.add("4")
+graph.has_seen.add("5")
+
+graph.all_gateways.add("3")
+graph.all_gateways.add("4")
+graph.all_gateways.add("5")
+
+g = graph.find_best_gateway("0")
+print("Best gateway is: ")
+print(g)
+
+g = graph.find_best_gateway_better("0")
+print("Better gateway is: ")
+print(g)
+'''

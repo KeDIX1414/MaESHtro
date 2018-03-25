@@ -10,10 +10,13 @@ import os
 from graph import Graph
 
 class MaestroSocket:
-	def __init__(self, ip, port, server=False, username="KeDIX1414"):
+	def __init__(self, ip, port, server=False):
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.controller_graph = Graph()
 		# self.sock.setblocking(0)
+
+		# Set timeout here if necessary
+		#self.sock.settimeout(5.0)
 		if server:
 			self.sock.bind((ip, port))
 			self.sock.listen(1)
@@ -21,11 +24,10 @@ class MaestroSocket:
 			self.client_list = [self.sock]
 		else:
 			try:
-                                # THIS IS THE IP AND PORT OF THE SERVER. TO CHNAGE PORT, CHANGE HERE ADN SERVER.PY
-				self.sock.connect(('127.0.0.4', 20001))
+                # THIS IS THE IP AND PORT OF THE SERVER. TO CHANGE PORT, CHANGE HERE AND SERVER.PY
+				self.sock.connect(('127.0.0.4', port))
+				#self.sock.connect(('127.0.0.4', 20001))				
 				print('You have been connected to the remote host.')
-				#msg = "Username:" + username
-				#self.sock.send(msg.encode())
 				self.socket_list = [self.sock, sys.stdin]
 			except Exception as e:
 				print(str(e))
@@ -35,8 +37,9 @@ class MaestroSocket:
 	def client_loop(self):
 		my_ip_address = ""
 		gateway_node_ip = ""
-                os.environ["GATEWAY_NODE_IP"] = ""
-                should_add_gateway = False
+		os.environ["GATEWAY_NODE_IP"] = ""
+		should_add_gateway = False
+		devnull = open(os.devnull, 'w')
                 
 		try: 
 			my_ip_address = subprocess.check_output(["sed -n -e 's/^.*address //p' /etc/network/interfaces"], shell=True)
@@ -51,9 +54,9 @@ class MaestroSocket:
 		while 1:
             
             # Generate client-neighbors.json file
-                        try: 
+			try: 
 				run = subprocess.check_output(["sh create-client-json.sh"], shell=True)
-                        except Exception as e: 
+			except Exception as e: 
 				print(str(e))
 				print("Could not run 'create-client-json' script")
             
@@ -89,60 +92,31 @@ class MaestroSocket:
 			print("Client old gateway IP was: ")
 			print(old_gateway)
 
-			# If I got a new gateway IP, delete defulta routes
-			if old_gateway != gateway_node_ip or old_gateway == "": 
-				os.environ["GATEWAY_NODE_IP"] = gateway_node_ip
-				print("I have a new gateway node now!")
-				should_add_gateway = True
-				subprocess.call(["sudo ip route del ", "0/0"], shell=True)
+
+			# If there is no gateway IP available, do nothing
+			if gateway_node_ip != "": 
+
+				# If I got a new gateway IP, delete defulta routes
+				if old_gateway != gateway_node_ip or old_gateway == "": 
+					os.environ["GATEWAY_NODE_IP"] = gateway_node_ip
+					print("I have a new gateway node now!")
+					should_add_gateway = True
+					subprocess.call(["sudo ip route del ", "0/0"], shell=True)
 			
-			#If current client is the gateway, delete the route
-                        if my_ip_address == gateway_node_ip: 
-				print("I am the gateway")
-				should_add_gateway = False
-				subprocess.call(["sudo ip route del ", "0/0"], shell=True)
+				#If current client is the gateway, delete the route
+				if my_ip_address == gateway_node_ip: 
+					print("I am the gateway")
+					should_add_gateway = False
+					subprocess.call(["sudo ip route del ", "0/0"], shell=True, stdout=devnull, stderr=devnull)
 			
-			#Else add route to non-gateway node
-			if should_add_gateway and my_ip_address != gateway_node_ip:
-				print("Adding route to gateway!")
-				cmd_string = "sudo ip route add default via " + gateway_node_ip
-				should_add_gateway = False
-				subprocess.call([cmd_string], shell=True)
-                            
-##			ready_to_read,ready_to_write,in_error = select.select(self.socket_list , [], [])
-##			for sock in ready_to_read:
-##				if sock == self.sock:
-##                                        #data = sock.recv(1024)
-##					if not data:
-##						print('You have been disconnected from the server')
-##						sys.exit()
-##					else:
-##						#TODO: I assume gateway_node_ip is now a string, but I haven't verified this yet!
-##                                                my_file = open('client-neighbors.json', 'r')
-##                                                msg = my_file.read()
-##                                                print('1')
-##                                                self.sock.send(msg.encode())
-##                                                print('2')
-##                                                data = sock.recv(1024)
-##                                                print('3')
-##						gateway_node_ip = data.decode()
-##						print("gateway_node_ip in client is: ")
-##						print(gateway_node_ip)
-##						
-##						#If current client is the gate, delete the route
-##						if my_ip_address == gateway_node_ip: 
-##							subprocess.check_output(["ip route del ", "0/0"])
-##
-##						#Add route to gateway node
-##						output = subprocess.check_output(["sudo ip route add default via ", gateway_node_ip])
-##						print(output)
-##				else:
-##					# msg = sys.stdin.readline()
-##					#my_file = open('client-neighbors.json', 'r')
-##					#msg = my_file.read()
-##					#self.sock.send(msg.encode())
-##					print("not goosd")
+				#Else add route to non-gateway node
+				if should_add_gateway and my_ip_address != gateway_node_ip:
+					print("Adding route to gateway!")
+					cmd_string = "sudo ip route add default via " + gateway_node_ip
+					should_add_gateway = False
+					subprocess.call([cmd_string], shell=True, stdout=devnull, stderr=devnull)
 					
+
 	def server_loop(self):
 		gateway_node_ip = ""
 		counter = 0
@@ -186,35 +160,32 @@ class MaestroSocket:
 								counter = 0
 
 							# Find this node's closest gateway and send it to them
+							# If no gateway available, gateway is empty string
 							if is_gateway == True: 
 								gateway_node_ip = client_ip
 							else:
-                                                                print("Trying to find a gateway...")
-                                                                print("Possible gateways are: ")
-                                                                for g in self.controller_graph.all_gateways:
-                                                                    print(g)
+								print("Trying to find a gateway...")
+								print("Possible gateways are: ")
+								for g in self.controller_graph.all_gateways:
+									print(g)
                                                                 
-                                                                print("Now finding best gateway with non-shitty algorithm")
-                                                                gateway_node_ip = self.controller_graph.find_best_gateway_better(client_ip)
-                                                                print("Gateway with better algorithm is: ")
-                                                                print(gateway_node_ip)
-                                                                
-								print("Now finding best gateway with shitty algorithm")
-								# TODO: Test better algorithm too
+								print("Now finding best gateway for this client...")
 								gateway_node_ip = self.controller_graph.find_best_gateway(client_ip)
-								print("Gateway with shitty algorithm is: ")
+								print("Best gateway is: ")
 								print(gateway_node_ip)
+                                                                
 
 							# Debugging print statements
+							print("********************")
 							print("This client's ip is: ")
 							print(client_ip)
 							print("The best gateway node for this client is: ")
 							print(gateway_node_ip)
 							print("Now printing controller graph: ")
 							print(self.controller_graph._graph)
-							#gateway_node_ip= "192.168.1.1"
+							print("********************")
 							
-							print("Now sending gateway IP to client")
+							# Send gateway IP to client
 							sock.send(gateway_node_ip.encode())
 						else:
 							sock.close()
