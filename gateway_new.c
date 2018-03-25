@@ -22,7 +22,7 @@ int count = 0;
 int linkhdrlen;
 pcap_t* descr;
 
-struct udphdr {
+struct udp_header {
     unsigned short int udph_srcport;
     unsigned short int udph_destport;
     unsigned short int udph_len;
@@ -35,10 +35,10 @@ struct icmphdr {
     uint16_t icmp_chk;
 };
 
-struct udphdr *get_udp_header(const u_char *packet) {
+struct udp_header *get_udp_header(const u_char *packet) {
     packet += linkhdrlen;
     packet += sizeof(struct ip);
-    struct udphdr *udp_header = (struct udphdr*) packet;
+    struct udp_header *udp_header = (struct udp_header*) packet;
     return udp_header;
 }
 
@@ -217,11 +217,85 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     
     struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
     printf("Printing the IP header\n");
-    PrintData(datagram, iph->ip_hl*4);
+    PrintData((unsigned char *)datagram, iph->ip_hl*4);
     printf("Printing the TCP header\n");
-    PrintData(datagram + 20,tcph->th_off*4);
+    PrintData((unsigned char *)datagram + 20,tcph->th_off*4);
     printf("Printing the Payload\n");
-    PrintData(datagram + 20 + tcph->th_off*4, iph->ip_len - 20 - tcph->th_off*4);
+    PrintData((unsigned char *)datagram + 20 + tcph->th_off*4, iph->ip_len - 20 - tcph->th_off*4);
+    int one = 1;
+    const int *val = &one;
+    if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
+        printf ("Warning: Cannot set HDRINCL!\n");
+    int count = 0;
+    if (sendto (s, datagram, iph->ip_len,    0, (struct sockaddr *) &sin, sizeof (sin)) < 0) {
+        printf ("error\n");
+        recv(s, datagram, sizeof(datagram), 0);
+    } else {
+        printf ("success.\n ");
+    }
+}
+
+void inject_udp(struct ip *og_ip, struct udp_header *og_udp, char *payload, int payload_len, int total_len) {
+    printf("The payload length is %d\n", payload_len);
+    int s = socket (PF_INET, SOCK_RAW, IPPROTO_UDP);
+    char datagram[4096];
+    struct ip *iph = (struct ip *) datagram;
+    struct udp_header *udph = (struct udp_header *) (datagram + sizeof (struct ip));
+    struct sockaddr_in sin;
+    
+    
+    sin.sin_family = AF_INET;
+    sin.sin_port = htons (25);
+    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
+        sin.sin_addr.s_addr = inet_addr ("172.217.15.100");
+        printf("This packet is coming from the pi\n");
+    } else {
+        sin.sin_addr.s_addr = inet_addr ("6.6.1.5");
+        printf("This packet is coming from google\n");
+    }
+    memset (datagram, 0, 4096);    /* zero out the buffer */
+    
+    /* we'll now fill in the ip/tcp header values, see above for explanations */
+    iph->ip_hl = 5;
+    iph->ip_v = og_ip->ip_v;
+    iph->ip_tos = og_ip->ip_tos;
+    if (payload == NULL) {
+        iph->ip_len = sizeof (struct ip) + sizeof (struct tcphdr);
+    } else {
+        iph->ip_len = sizeof (struct ip) + sizeof (struct tcphdr) + payload_len;
+    }
+    iph->ip_id = og_ip->ip_id;    /* the value doesn't matter here */
+    iph->ip_off = 0;
+    iph->ip_ttl = og_ip->ip_ttl;
+    iph->ip_p = og_ip->ip_p;
+    iph->ip_sum = 0;
+    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") == 0) {
+        iph->ip_src.s_addr = inet_addr("10.0.0.244");/* SYN's can be blindly spoofed */
+        iph->ip_dst.s_addr = inet_addr("172.217.15.100");
+    } else {
+        iph->ip_src.s_addr = inet_addr("172.217.15.100");/* SYN's can be blindly spoofed */
+        iph->ip_dst.s_addr = inet_addr("6.6.1.5");
+    }
+    
+    udph->udph_srcport = og_udp->udph_srcport;
+    udph->udph_destport = og_udp->udph_destport;
+    udph->udph_len = og_udp->udph_len;
+    udph->udph_chksum = 0;
+    
+    
+    // add the payload
+    memcpy(datagram + sizeof (struct ip) + sizeof (struct udp_header), payload, payload_len);
+    
+    iph->ip_sum = csum ((unsigned short *) datagram, iph->ip_len >> 1);
+    udph->udph_chksum = tcp_checksum(udph, 20 + payload_len, iph->ip_src.s_addr, iph->ip_dst.s_addr);
+    
+    struct tcphdr *test = (struct tcphdr *) datagram + sizeof (struct ip);
+    printf("Printing the IP header\n");
+    PrintData((unsigned char *)datagram, iph->ip_hl*4);
+    printf("Printing the TCP header\n");
+    PrintData((unsigned char *)datagram + 20,sizeof(struct udp_header));
+    printf("Printing the Payload\n");
+    PrintData((unsigned char *)datagram + 20 + sizeof(struct udp_header), iph->ip_len - 20 - sizeof(struct udp_header));
     int one = 1;
     const int *val = &one;
     if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
@@ -310,10 +384,10 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
 
 void handlePkt(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
     struct ip *ip = get_ip_header(packet);
+    printf("\n\n\n");
     if (ip->ip_p == 6) {
         struct tcphdr *tcp = get_tcp_header(packet);
         uint16_t iplen = (ip->ip_len >> 8) | (ip->ip_len << 8);
-        printf("\n\n\n");
         if (iplen > sizeof(struct ip) + tcp->th_off*4) {
             char *payload = get_payload(packet, sizeof(struct ip) + tcp->th_off*4, iplen);
             int payload_len = (iplen) - (sizeof(struct ip) + tcp->th_off*4);
@@ -335,7 +409,16 @@ void handlePkt(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *pac
     }
     else if (ip->ip_p == 17) {
         //struct updhdr *udp = get_udp_header(packet);
-        printf("code not written yet\n");
+        struct udp_header *udp = get_udp_header(packet);
+        uint16_t iplen = (ip->ip_len >> 8) | (ip->ip_len << 8);
+        if (iplen > sizeof(struct ip) + sizeof(struct udp_header)) {
+            char *payload = get_payload(packet, sizeof(struct ip) + sizeof(struct udp_header), iplen);
+            int payload_len = (iplen) - (sizeof(struct ip) + sizeof(struct udp_header));
+            inject_udp(ip, udp, payload, payload_len, iplen);
+        } else {
+            inject_udp(ip, udp, NULL, 0, iplen);
+        }
+        
     } else {
         printf("unsupported protocol\n");
     }
