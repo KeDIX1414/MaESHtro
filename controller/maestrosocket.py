@@ -25,7 +25,10 @@ class MaestroSocket:
 		else:
 			try:
                 # THIS IS THE IP AND PORT OF THE SERVER. TO CHANGE PORT, CHANGE HERE AND SERVER.PY
-				self.sock.connect(('127.0.0.4', port))
+				self.sock.bind((ip, 10000))
+
+                # 6.6.1.3 is the static IP address of the server
+				self.sock.connect(('6.6.1.3', port))
 				#self.sock.connect(('127.0.0.4', 20001))				
 				print('You have been connected to the remote host.')
 				self.socket_list = [self.sock, sys.stdin]
