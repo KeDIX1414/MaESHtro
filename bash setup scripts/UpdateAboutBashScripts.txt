@@ -2,4 +2,4 @@ So, for now, just run the scripts manually from their directory
     $ sh nameofscript.sh
 
 This is because the method I used to set them to run on startup is apparently deprecated. So, I'll just crontab them when I have access to the pis again.
-They are fully functional though and can just be run from wherever they are manually.    
+They are fully functional though and can just be run from wherever they are manually.
