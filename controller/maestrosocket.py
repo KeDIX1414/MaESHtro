@@ -104,7 +104,7 @@ class MaestroSocket:
 					os.environ["GATEWAY_NODE_IP"] = gateway_node_ip
 					print("I have a new gateway node now!")
 					should_add_gateway = True
-					subprocess.call(["sudo ip route del ", "0/0"], shell=True)
+					subprocess.call(["sudo ip route del ", "0/0"], shell=True, stdout=devnull, stderr=devnull)
 			
 				#If current client is the gateway, delete the route
 				if my_ip_address == gateway_node_ip: 
