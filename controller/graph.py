@@ -2,11 +2,13 @@
 
 from collections import defaultdict
 import math
+import json 
+import ast 
 
 class Graph(object):
     """ Graph data structure, undirected by default. """
 
-    def __init__(self, directed=True):
+    def __init__(self, directed=False):
         # Represent graph as dictionary of sets. Node is key, neighbors are enumerated in set
         self._graph = defaultdict(set)
         self._directed = directed
@@ -94,7 +96,8 @@ class Graph(object):
        return return_gateway
     '''
 
-    def find_best_gateway(self, client_ip): 
+    # Now returns gateway or next hop to gateway
+    def find_default_next_hop(self, client_ip): 
         q = []
         dist = {}
         prev = {}
@@ -151,6 +154,89 @@ class Graph(object):
         return return_gateway
 
 
+    # Find all info to give to gateway node
+    def find_next_hop_for_all_nodes(self, client_ip): 
+        return_list = []
+        q = []
+        dist = {}
+        prev = {}
+        for v in self.all_nodes: 
+            dist[v] = 100000
+            prev[v] = None
+            q.append(v)
+
+        dist[client_ip] = 0
+
+        while len(q) > 0: 
+            #print("dictionary keys are: ")
+            set_of_keys = set(dist.keys())
+            #print(set_of_keys)
+            set_of_queue = set(q)
+            intersection = set_of_queue.intersection(set_of_keys)
+            #print("intersection set is: ")
+            #print(intersection)
+
+            u = min(dist, key=dist.get)
+            min_dist = 100000
+            for i in intersection: 
+                if dist[i] < min_dist: 
+                    min_dist = dist[i]
+                    u = i
+
+
+            #print("u is: ")
+            #print(u)
+            q.remove(u)
+            neighbors = self._graph[u]
+            #print("neighbors are: ")
+            #print(neighbors)
+
+            for v in neighbors: 
+                alt = dist[u] + 1
+                if alt < dist[v]: 
+                    dist[v] = alt
+                    prev[v] = u
+
+        min_dist_gateway = 100000
+        return_gateway = ""
+        for g in self.all_gateways: 
+            if dist[g] < min_dist_gateway: 
+                return_gateway = g
+        #return return_gateway
+        print("Best gateway is: ")
+        print(return_gateway)
+
+        if return_gateway == client_ip: 
+            return_gateway = ""
+        else: 
+            while prev[return_gateway] != client_ip: 
+                return_gateway = prev[return_gateway]
+
+            print("Next hop is: ")
+            print(return_gateway)
+
+        for dest_node in self.all_nodes:
+            if dest_node != client_ip: 
+                next_hop = dest_node
+                while prev[next_hop] != client_ip: 
+                    next_hop = prev[next_hop]
+
+                #print("Destination node is: ")
+                #print(dest_node)
+                #print("Next hop is: ")
+                #print(next_hop)
+
+                s = tuple((dest_node, next_hop))
+                return_list.append(s)
+        
+        return_json = {}
+        return_json['default'] = return_gateway
+        return_json['next_hops'] = return_list
+        json_data = json.dumps(return_json)
+        # print(json_data)
+        return json_data
+
+
     def find_path(self, node1, node2, path=[]):
         """ Find any path between node1 and node2 (may not be shortest) """
         print("in find_path function in graph.py")
@@ -172,9 +258,9 @@ class Graph(object):
     def __str__(self):
         return '{}({})'.format(self.__class__.__name__, dict(self._graph))
 
-'''
+
 graph = Graph()
-connections = [("0", "1"), ("1", "2"), ("2", "3"), ("1", "5"), ("0", "4")]
+connections = [("2", "1"), ("1", "2"), ("1", "3"), ("3", "1"), ("1", "0"), ("0", "1"), ("0", "4"), ("4", "0"), ("0", "3"), ("3", "0")]
 graph.add_connections_list(connections)
 print(graph._graph)
 
@@ -183,24 +269,16 @@ graph.all_nodes.add("1")
 graph.all_nodes.add("2")
 graph.all_nodes.add("3")
 graph.all_nodes.add("4")
-graph.all_nodes.add("5")
-
-graph.has_seen.add("0")
-graph.has_seen.add("1")
-graph.has_seen.add("2")
-graph.has_seen.add("3")
-graph.has_seen.add("4")
-graph.has_seen.add("5")
 
 graph.all_gateways.add("3")
-graph.all_gateways.add("4")
-graph.all_gateways.add("5")
 
-g = graph.find_best_gateway("0")
-print("Best gateway is: ")
-print(g)
+j = graph.find_next_hop_for_all_nodes("3")
+print("json is: ")
+print(j)
 
-g = graph.find_best_gateway_better("0")
-print("Better gateway is: ")
-print(g)
-'''
+parsed_json = ast.literal_eval(j)
+next_hops = parsed_json["next_hops"]
+for n in next_hops: 
+    print(n)
+    print(n[0])
+    print(n[1])

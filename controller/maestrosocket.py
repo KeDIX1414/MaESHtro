@@ -41,7 +41,7 @@ class MaestroSocket:
 		my_ip_address = ""
 		gateway_node_ip = ""
 		os.environ["GATEWAY_NODE_IP"] = ""
-		should_add_gateway = False
+		#should_add_gateway = False
 		devnull = open(os.devnull, 'w')
                 
 		try: 
@@ -82,9 +82,11 @@ class MaestroSocket:
 			print("Now receiving data from server")
 			try: 
 				data = self.sock.recv(1024)
-				gateway_node_ip = data.decode()
-				print("Gateway_node_ip (NEXT HOP) received from server is: ")
-				print(gateway_node_ip)
+				message = data.decode()
+
+				parsed_server_json = ast.literal_eval(message)
+				print("Server JSON received is: ")
+				print(parsed_server_json)
 			except Exception as e: 
 				print(str(e))
 				print("Could not receive gateway IP address from server")
@@ -94,30 +96,30 @@ class MaestroSocket:
 			old_gateway = os.environ["GATEWAY_NODE_IP"]
 			print("Client old gateway IP was: ")
 			print(old_gateway)
+			gateway_node_ip = parsed_server_json["default"]
 
 
-			# If there is no gateway IP available, do nothing
-			if gateway_node_ip != "": 
-
-				# If I got a new gateway IP, delete defulta routes
-				if old_gateway != gateway_node_ip or old_gateway == "": 
-					os.environ["GATEWAY_NODE_IP"] = gateway_node_ip
-					print("I have a new gateway node (OR NEXT HOP) now!")
-					should_add_gateway = True
-					subprocess.call(["sudo ip route del ", "0/0"], shell=True)
+			# If I got a new gateway IP, or I am the gateway, delete default routes
+			if old_gateway != gateway_node_ip or old_gateway == "" or gateway_node_ip == "": 
+				os.environ["GATEWAY_NODE_IP"] = gateway_node_ip
+				print("I have a new gateway node (OR NEXT HOP) now!")
+				subprocess.call(["sudo ip route del ", "0/0"], shell=True, stdout=devnull, stderr=devnull)
 			
-				#If current client is the gateway, delete the route
-				if my_ip_address == gateway_node_ip: 
-					print("I am the gateway")
-					should_add_gateway = False
-					subprocess.call(["sudo ip route del ", "0/0"], shell=True, stdout=devnull, stderr=devnull)
-			
-				#Else add route to non-gateway node
-				if should_add_gateway and my_ip_address != gateway_node_ip:
-					print("Adding route to gateway!")
-					cmd_string = "sudo ip route add default via " + gateway_node_ip
-					should_add_gateway = False
-					subprocess.call([cmd_string], shell=True, stdout=devnull, stderr=devnull)
+			#Add default route and routes to next hops to every other node in network
+			if gateway_node_ip != "":
+				print("Adding default route to gateway!")
+				cmd_string = "sudo ip route add default via " + gateway_node_ip
+				subprocess.call([cmd_string], shell=True, stdout=devnull, stderr=devnull)
+
+			# Now add routes to all other nodes with next hops info
+			print("Adding routes to next hop for all other nodes!")
+			next_hops = parsed_client_json["next_hops"]
+			for n in next_hops: 
+				dest = n[0]
+				hop = n[1]
+				cmd_string = "sudo ip route add " + dest + " via " + hop
+				subprocess.call([cmd_string], shell=True, stdout=devnull, stderr=devnull)
+
 					
 
 	def server_loop(self):
@@ -153,29 +155,20 @@ class MaestroSocket:
 							self.controller_graph.update_gateways(client_ip, is_gateway)
 
 							# Mark that you've seen this node recently
-							# If 1000 iterations have passed, remove all inactive nodes (those node yet seen) and reset
+							# If 100 iterations have passed, remove all inactive nodes (those node yet seen) and reset
 							counter = counter + 1
 							print("Now updating seen nodes")
 							self.controller_graph.update_seen(client_ip)
-							if counter == 1000: 
+							if counter == 100: 
 								print("Now resetting seen")
 								self.controller_graph.reset_seen()
 								counter = 0
 
-							# Find this node's closest gateway and send it to them
-							# If no gateway available, gateway is empty string
-							if is_gateway == True: 
-								gateway_node_ip = client_ip
-							else:
-								print("Trying to find a gateway...")
-								print("Possible gateways are: ")
-								for g in self.controller_graph.all_gateways:
-									print(g)
-                                                                
-								print("Now finding best gateway for this client...")
-								gateway_node_ip = self.controller_graph.find_best_gateway(client_ip)
-								#print("Best gateway is: ")
-								#print(gateway_node_ip)
+							# Find next hop to closest gateway (this may be the gateway)
+							# Also find next hops to all nodes in network
+							next_hops_json = self.controller_graph.find_next_hop_for_all_nodes(client_ip)
+							#print("Best gateway is: ")
+							#print(gateway_node_ip)
                                                                 
 
 							# Debugging print statements
@@ -183,14 +176,14 @@ class MaestroSocket:
 							print("This client's ip is: ")
 							print(client_ip)
 							#print("The best gateway node for this client is: ")
-							print("Next hop is: ")
-							print(gateway_node_ip)
+							print("Next hop/gateway JSON is: ")
+							print(next_hops_json)
 							print("Now printing controller graph: ")
 							print(self.controller_graph._graph)
 							print("********************")
 							
 							# Send gateway IP to client
-							sock.send(gateway_node_ip.encode())
+							sock.send(next_hops_json.encode())
 						else:
 							sock.close()
 							self.client_list.remove(sock)
