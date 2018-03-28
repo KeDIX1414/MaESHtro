@@ -140,7 +140,16 @@ class Graph(object):
         for g in self.all_gateways: 
             if dist[g] < min_dist_gateway: 
                 return_gateway = g
+        #return return_gateway
+        print("Best gateway is: ")
+        print(return_gateway)
+        while prev[return_gateway] != client_ip: 
+            return_gateway = prev[return_gateway]
+
+        print("Next hop is: ")
+        print(return_gateway)
         return return_gateway
+
 
     def find_path(self, node1, node2, path=[]):
         """ Find any path between node1 and node2 (may not be shortest) """

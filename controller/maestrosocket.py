@@ -83,7 +83,7 @@ class MaestroSocket:
 			try: 
 				data = self.sock.recv(1024)
 				gateway_node_ip = data.decode()
-				print("Gateway_node_ip received from server is: ")
+				print("Gateway_node_ip (NEXT HOP) received from server is: ")
 				print(gateway_node_ip)
 			except Exception as e: 
 				print(str(e))
@@ -102,7 +102,7 @@ class MaestroSocket:
 				# If I got a new gateway IP, delete defulta routes
 				if old_gateway != gateway_node_ip or old_gateway == "": 
 					os.environ["GATEWAY_NODE_IP"] = gateway_node_ip
-					print("I have a new gateway node now!")
+					print("I have a new gateway node (OR NEXT HOP) now!")
 					should_add_gateway = True
 					subprocess.call(["sudo ip route del ", "0/0"], shell=True)
 			
@@ -174,15 +174,16 @@ class MaestroSocket:
                                                                 
 								print("Now finding best gateway for this client...")
 								gateway_node_ip = self.controller_graph.find_best_gateway(client_ip)
-								print("Best gateway is: ")
-								print(gateway_node_ip)
+								#print("Best gateway is: ")
+								#print(gateway_node_ip)
                                                                 
 
 							# Debugging print statements
 							print("********************")
 							print("This client's ip is: ")
 							print(client_ip)
-							print("The best gateway node for this client is: ")
+							#print("The best gateway node for this client is: ")
+							print("Next hop is: ")
 							print(gateway_node_ip)
 							print("Now printing controller graph: ")
 							print(self.controller_graph._graph)
