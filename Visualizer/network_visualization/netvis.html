@@ -1,0 +1,236 @@
+<!-- START SIGMA IMPORTS -->
+<script src="../src/sigma.core.js"></script>
+<script src="../src/conrad.js"></script>
+<script src="../src/utils/sigma.utils.js"></script>
+<script src="../src/utils/sigma.polyfills.js"></script>
+<script src="../src/sigma.settings.js"></script>
+<script src="../src/classes/sigma.classes.dispatcher.js"></script>
+<script src="../src/classes/sigma.classes.configurable.js"></script>
+<script src="../src/classes/sigma.classes.graph.js"></script>
+<script src="../src/classes/sigma.classes.camera.js"></script>
+<script src="../src/classes/sigma.classes.quad.js"></script>
+<script src="../src/classes/sigma.classes.edgequad.js"></script>
+<script src="../src/captors/sigma.captors.mouse.js"></script>
+<script src="../src/captors/sigma.captors.touch.js"></script>
+<script src="../src/renderers/sigma.renderers.canvas.js"></script>
+<script src="../src/renderers/sigma.renderers.webgl.js"></script>
+<script src="../src/renderers/sigma.renderers.svg.js"></script>
+<script src="../src/renderers/sigma.renderers.def.js"></script>
+<script src="../src/renderers/webgl/sigma.webgl.nodes.def.js"></script>
+<script src="../src/renderers/webgl/sigma.webgl.nodes.fast.js"></script>
+<script src="../src/renderers/webgl/sigma.webgl.edges.def.js"></script>
+<script src="../src/renderers/webgl/sigma.webgl.edges.fast.js"></script>
+<script src="../src/renderers/webgl/sigma.webgl.edges.arrow.js"></script>
+<script src="../src/renderers/canvas/sigma.canvas.labels.def.js"></script>
+<script src="../src/renderers/canvas/sigma.canvas.hovers.def.js"></script>
+<script src="../src/renderers/canvas/sigma.canvas.nodes.def.js"></script>
+<script src="../src/renderers/canvas/sigma.canvas.edges.def.js"></script>
+<script src="../src/renderers/canvas/sigma.canvas.edges.curve.js"></script>
+<script src="../src/renderers/canvas/sigma.canvas.edges.arrow.js"></script>
+<script src="../src/renderers/canvas/sigma.canvas.edges.curvedArrow.js"></script>
+<script src="../src/renderers/canvas/sigma.canvas.edgehovers.def.js"></script>
+<script src="../src/renderers/canvas/sigma.canvas.edgehovers.curve.js"></script>
+<script src="../src/renderers/canvas/sigma.canvas.edgehovers.arrow.js"></script>
+<script src="../src/renderers/canvas/sigma.canvas.edgehovers.curvedArrow.js"></script>
+<script src="../src/renderers/canvas/sigma.canvas.extremities.def.js"></script>
+<script src="../src/renderers/svg/sigma.svg.utils.js"></script>
+<script src="../src/renderers/svg/sigma.svg.nodes.def.js"></script>
+<script src="../src/renderers/svg/sigma.svg.edges.def.js"></script>
+<script src="../src/renderers/svg/sigma.svg.edges.curve.js"></script>
+<script src="../src/renderers/svg/sigma.svg.labels.def.js"></script>
+<script src="../src/renderers/svg/sigma.svg.hovers.def.js"></script>
+<script src="../src/middlewares/sigma.middlewares.rescale.js"></script>
+<script src="../src/middlewares/sigma.middlewares.copy.js"></script>
+<script src="../src/misc/sigma.misc.animation.js"></script>
+<script src="../src/misc/sigma.misc.bindEvents.js"></script>
+<script src="../src/misc/sigma.misc.bindDOMEvents.js"></script>
+<script src="../src/misc/sigma.misc.drawHovers.js"></script>
+<!-- END SIGMA IMPORTS -->
+<script src="../plugins/sigma.renderers.customEdgeShapes/sigma.canvas.edges.dashed.js"></script>
+<script src="../plugins/sigma.renderers.customEdgeShapes/sigma.canvas.edges.dotted.js"></script>
+<script src="../plugins/sigma.renderers.customEdgeShapes/sigma.canvas.edges.parallel.js"></script>
+<script src="../plugins/sigma.renderers.customEdgeShapes/sigma.canvas.edges.tapered.js"></script>
+<script src="../plugins/sigma.renderers.customEdgeShapes/sigma.canvas.edgehovers.dashed.js"></script>
+<script src="../plugins/sigma.renderers.customEdgeShapes/sigma.canvas.edgehovers.dotted.js"></script>
+<script src="../plugins/sigma.renderers.customEdgeShapes/sigma.canvas.edgehovers.parallel.js"></script>
+<script src="../plugins/sigma.renderers.customEdgeShapes/sigma.canvas.edgehovers.tapered.js"></script>
+<script src="../plugins/sigma.parsers.json/sigma.parsers.json.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script src="lib/require.js"></script>
+<div id="container">
+  <style>
+    #graph-container {
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      position: absolute;
+    }
+  </style>
+  <div id="graph-container"></div>
+</div>
+<script>
+requirejs(['../node_modules/lodash/lodash'], function (lodash) {
+
+  $.ajaxSetup({
+    cache: false
+  });
+
+  var g = {
+        nodes: [],
+        edges: []
+      };
+
+  var s = new sigma({
+    graph: g,
+    renderer: {
+      container: document.getElementById('graph-container'),
+      type: 'canvas'
+    },
+    settings: {
+      minNodeSize: 1,
+      maxNodeSize: 10,
+      minEdgeSize: 0.1,
+      maxEdgeSize: 2,
+      enableEdgeHovering: true,
+      edgeHoverSizeRatio: 2
+    }
+  });
+
+  function relocateNodes() {
+    var g = {};
+
+    // Go through the nodes and 
+    s.graph.nodes().forEach(function(node) {
+      var level = node.level.toString();
+      if(g.hasOwnProperty(level)){
+        g[level].counter++;
+      } else {
+        g[level] = {
+          "counter" : 2,
+          "increment" : 1
+        };
+      }
+    });
+    
+    s.graph.nodes().forEach(function(node) {
+      var level = node.level.toString();
+      var xInfo = g[level];
+      x = xInfo.increment * 1.0/xInfo.counter;
+      g[level].increment++;
+      s.graph.nodes(node.id).x = x;
+    });
+  }
+
+  // Checks the data to see if any nodes are changed
+  // Returns an array of two booleans
+  // If either boolean is true, you should refresh graph
+  // If the first boolean is true, you should recall accumulateLevels before refreshing graph
+  function refreshNodes(inputNodes) {
+    var hasNodesChanged = false;
+    var hasNodeInfoChanged = false;
+
+    // Check if nodes exist
+    inputNodes.forEach(function(inputNode) {
+      if(!s.graph.nodes(inputNode.id)) {
+        s.graph.addNode({
+            id: inputNode.id,
+            label: inputNode.label,
+            level: inputNode.level,
+            size: 5,
+            y: inputNode.level * 0.5,
+            color: "#000000"
+          });
+        hasNodesChanged = true;
+      }
+    });
+
+    // Check if nodes have disappeared
+    s.graph.nodes().forEach(function(currNode) {
+      var hasCurrNode = false;
+      inputNodes.forEach(function(inputNode) {
+        if (currNode.id == inputNode.id) {
+          hasCurrNode = true;
+        }
+      });
+      if(!hasCurrNode) {
+        s.graph.dropNode(currNode.id);
+        hasNodesChanged = true;
+      }
+    });
+
+    // Check buffer utilization
+    inputNodes.forEach(function(inputNode) {
+      var color;
+        if (inputNode.util === 0) {
+          color = "#000000";
+        } else if (inputNode.util < 50) {
+          color = "#ff0000";
+        } else if (inputNode.util < 100) {
+          color = "#ff8d00";
+        } else if (inputNode.util == 100) {
+          color = "#09ff00";
+        }
+      if (color != s.graph.nodes(inputNode.id).color){
+        s.graph.nodes(inputNode.id).color = color;
+        hasNodesChanged = true;
+      }
+    });
+    return [hasNodesChanged, hasNodeInfoChanged];
+  }
+
+  // Checks if any edges are added or removed
+  // Returns true if something has changed
+  function refreshEdges(inputEdges) {
+    var hasEdgesChanged = false;
+
+    // Check if there are any new edges
+    inputEdges.forEach(function(inputEdge) {
+      if(!s.graph.edges(inputEdge.id)) {
+        s.graph.addEdge({
+            id: inputEdge.id,
+            source: inputEdge.source,
+            target: inputEdge.target,
+            type: ['dotted'],
+            size: 2,
+            color: "#000000"
+          });
+        hasEdgesChanged = true;
+      }
+    });
+
+    // Check if nodes have disappeared
+    s.graph.edges().forEach(function(currEdge) {
+      var hasCurrEdge = false;
+      inputEdges.forEach(function(inputEdge) {
+        if (currEdge.id == inputEdge.id) {
+          hasCurrEdge = true;
+        }
+      });
+      if(!hasCurrEdge) {
+        s.graph.dropEdge(currEdge.id);
+        hasEdgesChanged = true;
+      }
+    });
+
+    return hasEdgesChanged;
+  }
+
+  function refreshData() {
+    $.getJSON("data/maeshtro.json", function (data) {
+        var nodeChanges = refreshNodes(data.nodes);
+        var edgeChanges = refreshEdges(data.edges);
+        if(nodeChanges[0] || nodeChanges[1] || edgeChanges) {
+          if(nodeChanges[0]) {
+            relocateNodes();
+          }
+          s.refresh();
+        } else {
+          console.log("no change");
+        }
+    });
+  }
+
+  setInterval(function(){refreshData();}, 500);
+});
+</script>
