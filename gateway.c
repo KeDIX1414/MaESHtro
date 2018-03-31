@@ -169,10 +169,12 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
     char *client;
-    if (og_tcp->th_dport == 4) {
-        client = "6.6.1.5"
+    if (og_tcp->th_dport == htons(4)) {
+	printf("This for incoming");
+        client = "6.6.1.3\n";
     } else {
-        client = "6.6.1.3"
+	printf("This for outgoingn");
+        client = "6.6.1.5\n";
     }
     if (og_tcp->th_dport == htons(5) || og_tcp->th_dport == htons(4)) {
         sin.sin_addr.s_addr = inet_addr (client);
@@ -197,15 +199,18 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (og_tcp->th_dport == htons(5) || og_tcp->th_dport == htons(4)) {
+	printf("These should be the same for incomiung%d %d\n", htons(4), og_tcp->th_dport); 
+    if (!(og_tcp->th_dport == htons(5) || og_tcp->th_dport == htons(4))) {
         iph->ip_src.s_addr = inet_addr(my_ip);/* SYN's can be blindly spoofed */
-        iph->ip_dst.s_addr = og_ip->ip_dst.s_addr;
+        iph->ip_dst.s_addr = og_ip->ip_dst.s_addr; 
 	printf("The source ip is %s\n", inet_ntoa(iph->ip_src));
 	printf("The destination ip is %s\n", inet_ntoa(iph->ip_dst));
     } else {
         iph->ip_src.s_addr = og_ip->ip_src.s_addr;
         // TODO: make function to map ports to IP addresses
         iph->ip_dst.s_addr = inet_addr(client);
+	printf("The source ip is %s\n", inet_ntoa(iph->ip_src));
+	printf("The destination ip is %s\n", inet_ntoa(iph->ip_dst));
     }
 
     tcph->th_sport = og_tcp->th_sport;    /* arbitrary port */
