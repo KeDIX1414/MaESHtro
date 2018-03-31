@@ -332,10 +332,12 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
 
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
-    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") != 0) {
-        sin.sin_addr.s_addr = inet_addr ("6.6.1.5");
+    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.3") != 0) {
+        sin.sin_addr.s_addr = inet_addr ("6.6.1.3");
         printf("This packet is coming from google\n");
-    }
+    } else  {
+	sin.sin_addr.s_addr =  og_ip->ip_dst.s_addr;
+   	}
     memset (datagram, 0, 4096);    /* zero out the buffer */
 
     /* we'll now fill in the ip/tcp header values, see above for explanations */
@@ -358,9 +360,9 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
     } else {
         iph->ip_src.s_addr = og_ip->ip_src.s_addr;
         // TODO: make function to map ports to IP addresses
-        iph->ip_dst.s_addr = inet_addr("6.6.1.5");
+        iph->ip_dst.s_addr = inet_addr("6.6.1.3");
     }
-
+	
     icmph->icmp_type = og_icmp->icmp_type;
     icmph->icmp_code = og_icmp->icmp_code;
     icmph->icmp_chk = 0;
@@ -484,7 +486,7 @@ int main(int argc, char **argv)
     strcat(pcap_compile_arg, ")");
     strcat(pcap_compile_arg, my_ip);
     strcat(pcap_compile_arg, ")");*/
-    if (pcap_compile(descr, &fp, "(src port 4 or src port 5) or (dst port 4 or dst port 5)", 0, net) == -1) {
+    if (pcap_compile(descr, &fp, "icmp or (src port 4 or src port 5) or (dst port 4 or dst port 5)", 0, net) == -1) {
         fprintf(stderr, "Couldn't parse filter\n");
         exit(1);
     }
