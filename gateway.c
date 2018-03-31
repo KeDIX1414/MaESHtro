@@ -174,7 +174,7 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     } else {
         client = "6.6.1.3"
     }
-    if (strcmp(inet_ntoa(og_ip->ip_src), client) != 0) {
+    if (og_tcp->th_dport == htons(5) || og_tcp->th_dport == htons(4)) {
         sin.sin_addr.s_addr = inet_addr (client);
         printf("This packet is coming from google\n");
     } else {
@@ -197,7 +197,7 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (strcmp(inet_ntoa(og_ip->ip_src), client) == 0) {
+    if (og_tcp->th_dport == htons(5) || og_tcp->th_dport == htons(4)) {
         iph->ip_src.s_addr = inet_addr(my_ip);/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = og_ip->ip_dst.s_addr;
 	printf("The source ip is %s\n", inet_ntoa(iph->ip_src));
