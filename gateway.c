@@ -174,7 +174,7 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     } else {
         client = "6.6.1.3"
     }
-    if (strcmp(inet_ntoa(og_ip->ip_src), client) == 0) {
+    if (strcmp(inet_ntoa(og_ip->ip_src), client) != 0) {
         sin.sin_addr.s_addr = inet_addr (client);
         printf("This packet is coming from google\n");
     } else {
