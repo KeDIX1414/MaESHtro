@@ -37,6 +37,7 @@ class Graph(object):
         new_neighbors = set()
         for n in client_neighbors: 
             new_neighbors.add(n)
+            self._graph[n].add(client_ip)
             if n not in self.all_nodes: 
                 self.all_nodes.add(n)
         self._graph[client_ip] = new_neighbors
