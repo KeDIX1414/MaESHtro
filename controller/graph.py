@@ -259,7 +259,7 @@ class Graph(object):
     def __str__(self):
         return '{}({})'.format(self.__class__.__name__, dict(self._graph))
 
-
+'''
 graph = Graph()
 connections = [("2", "1"), ("1", "2"), ("1", "3"), ("3", "1"), ("1", "0"), ("0", "1"), ("0", "4"), ("4", "0"), ("0", "3"), ("3", "0")]
 graph.add_connections_list(connections)
@@ -283,3 +283,4 @@ for n in next_hops:
     print(n)
     print(n[0])
     print(n[1])
+'''

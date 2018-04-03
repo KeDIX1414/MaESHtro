@@ -113,7 +113,7 @@ class MaestroSocket:
 
 			# Now add routes to all other nodes with next hops info
 			print("Adding routes to next hop for all other nodes!")
-			next_hops = parsed_client_json["next_hops"]
+			next_hops = parsed_server_json["next_hops"]
 			for n in next_hops: 
 				dest = n[0]
 				hop = n[1]
