@@ -169,12 +169,14 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
     char *client;
-    if (og_tcp->th_dport == 4) {
-        client = "6.6.1.5"
+    if (og_tcp->th_dport == htons(4)) {
+	printf("This for incoming");
+        client = "6.6.1.3\n";
     } else {
-        client = "6.6.1.3"
+	printf("This for outgoingn");
+        client = "6.6.1.5\n";
     }
-    if (strcmp(inet_ntoa(og_ip->ip_src), client) == 0) {
+    if (og_tcp->th_dport == htons(5) || og_tcp->th_dport == htons(4)) {
         sin.sin_addr.s_addr = inet_addr (client);
         printf("This packet is coming from google\n");
     } else {
@@ -197,15 +199,18 @@ void inject_tcp(struct ip *og_ip, struct tcphdr *og_tcp, char *payload, int payl
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (strcmp(inet_ntoa(og_ip->ip_src), client) == 0) {
+	printf("These should be the same for incomiung%d %d\n", htons(4), og_tcp->th_dport); 
+    if (!(og_tcp->th_dport == htons(5) || og_tcp->th_dport == htons(4))) {
         iph->ip_src.s_addr = inet_addr(my_ip);/* SYN's can be blindly spoofed */
-        iph->ip_dst.s_addr = og_ip->ip_dst.s_addr;
+        iph->ip_dst.s_addr = og_ip->ip_dst.s_addr; 
 	printf("The source ip is %s\n", inet_ntoa(iph->ip_src));
 	printf("The destination ip is %s\n", inet_ntoa(iph->ip_dst));
     } else {
         iph->ip_src.s_addr = og_ip->ip_src.s_addr;
         // TODO: make function to map ports to IP addresses
         iph->ip_dst.s_addr = inet_addr(client);
+	printf("The source ip is %s\n", inet_ntoa(iph->ip_src));
+	printf("The destination ip is %s\n", inet_ntoa(iph->ip_dst));
     }
 
     tcph->th_sport = og_tcp->th_sport;    /* arbitrary port */
@@ -327,10 +332,12 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
 
     sin.sin_family = AF_INET;
     sin.sin_port = htons (25);
-    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.5") != 0) {
-        sin.sin_addr.s_addr = inet_addr ("6.6.1.5");
+    if (strcmp(inet_ntoa(og_ip->ip_src), "6.6.1.3") != 0) {
+        sin.sin_addr.s_addr = inet_addr ("6.6.1.3");
         printf("This packet is coming from google\n");
-    }
+    } else  {
+	sin.sin_addr.s_addr =  og_ip->ip_dst.s_addr;
+   	}
     memset (datagram, 0, 4096);    /* zero out the buffer */
 
     /* we'll now fill in the ip/tcp header values, see above for explanations */
@@ -347,15 +354,15 @@ void inject_icmp(struct ip *og_ip, struct icmphdr *og_icmp, char *payload, int p
     iph->ip_ttl = og_ip->ip_ttl;
     iph->ip_p = og_ip->ip_p;
     iph->ip_sum = 0;
-    if (strcmp(inet_ntoa(og_ip->ip_src), my_ip) != 0) {
+    if (strcmp(inet_ntoa(og_ip->ip_src), "172.217.15.100") != 0) {
         iph->ip_src.s_addr = inet_addr(my_ip);/* SYN's can be blindly spoofed */
         iph->ip_dst.s_addr = og_ip->ip_dst.s_addr;
     } else {
         iph->ip_src.s_addr = og_ip->ip_src.s_addr;
         // TODO: make function to map ports to IP addresses
-        iph->ip_dst.s_addr = inet_addr("6.6.1.5");
+        iph->ip_dst.s_addr = inet_addr("6.6.1.3");
     }
-
+	printf("The source is %s and the dest is %s", inet_ntoa(iph->ip_src), inet_ntoa(iph->ip_dst));	
     icmph->icmp_type = og_icmp->icmp_type;
     icmph->icmp_code = og_icmp->icmp_code;
     icmph->icmp_chk = 0;
@@ -479,13 +486,24 @@ int main(int argc, char **argv)
     strcat(pcap_compile_arg, ")");
     strcat(pcap_compile_arg, my_ip);
     strcat(pcap_compile_arg, ")");*/
-    if (pcap_compile(descr, &fp, "(src port 4 or src port 5) or (dst port 4 or dst port 5)", 0, net) == -1) {
-        fprintf(stderr, "Couldn't parse filter\n");
-        exit(1);
-    }
-    if (pcap_setfilter(descr, &fp) == -1) {
-        fprintf(stderr, "Couldn't install filter\n");
-        exit(1);
+    if (strcmp(argv[2], "wlan0") == 0) {
+        if (pcap_compile(descr, &fp, "(icmp and dst host 172.217.15.100)  or (src port 4 or src port 5) or (dst port 4 or dst port 5)", 0, net) == -1) {
+            fprintf(stderr, "Couldn't parse filter\n");
+            exit(1);
+        }
+        if (pcap_setfilter(descr, &fp) == -1) {
+            fprintf(stderr, "Couldn't install filter\n");
+            exit(1);
+        }
+    } else {
+        if (pcap_compile(descr, &fp, "(icmp and src host 172.217.15.100)  or (src port 4 or src port 5) or (dst port 4 or dst port 5)", 0, net) == -1) {
+            fprintf(stderr, "Couldn't parse filter\n");
+            exit(1);
+        }
+        if (pcap_setfilter(descr, &fp) == -1) {
+            fprintf(stderr, "Couldn't install filter\n");
+            exit(1);
+        }
     }
 
     int linktype;
@@ -521,7 +539,7 @@ int main(int argc, char **argv)
     /*while (pcap_next_ex(descr, &hdr, &packet)) {
         handlePkt(hdr, packet);
     }*/
-    pcap_loop(descr, 1000, handlePkt, 0 );
+    pcap_loop(descr, 10000, handlePkt, 0 );
     pcap_close(descr);
 
     return 0;
