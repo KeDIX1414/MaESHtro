@@ -102,13 +102,14 @@ class MaestroSocket:
 			# If I got a new gateway IP, or I am the gateway, delete default routes
 			if old_gateway != gateway_node_ip or old_gateway == "" or gateway_node_ip == "": 
 				os.environ["GATEWAY_NODE_IP"] = gateway_node_ip
-				print("I have a new gateway node (OR NEXT HOP) now!")
+				print("I have a new gateway/next hop IP now!")
 				subprocess.call(["sudo ip route del ", "0/0"], shell=True, stdout=devnull, stderr=devnull)
 			
 			#Add default route and routes to next hops to every other node in network
 			if gateway_node_ip != "":
 				print("Adding default route to gateway!")
 				cmd_string = "sudo ip route add default via " + gateway_node_ip
+				print(cmd_string)
 				subprocess.call([cmd_string], shell=True, stdout=devnull, stderr=devnull)
 
 			# Now add routes to all other nodes with next hops info
@@ -118,6 +119,7 @@ class MaestroSocket:
 				dest = n[0]
 				hop = n[1]
 				cmd_string = "sudo ip route add " + dest + " via " + hop
+				print(cmd_string)
 				subprocess.call([cmd_string], shell=True, stdout=devnull, stderr=devnull)
 
 					
@@ -154,15 +156,17 @@ class MaestroSocket:
 							print("Now updating gateways")
 							self.controller_graph.update_gateways(client_ip, is_gateway)
 
+							# BUG: Something happens here where 'remove' is an invalid function
+							# BUG: Basically, if node goes offline, graph won't reflect that change
 							# Mark that you've seen this node recently
 							# If 100 iterations have passed, remove all inactive nodes (those node yet seen) and reset
-							counter = counter + 1
-							print("Now updating seen nodes")
-							self.controller_graph.update_seen(client_ip)
-							if counter == 100: 
-								print("Now resetting seen")
-								self.controller_graph.reset_seen()
-								counter = 0
+							#counter = counter + 1
+							#print("Now updating seen nodes")
+							#self.controller_graph.update_seen(client_ip)
+							#if counter == 100: 
+							#	print("Now resetting seen")
+							#	self.controller_graph.reset_seen()
+							#	counter = 0
 
 							# Find next hop to closest gateway (this may be the gateway)
 							# Also find next hops to all nodes in network
