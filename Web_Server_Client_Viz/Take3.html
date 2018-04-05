@@ -1,0 +1,100 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+         <meta charset="UTF-8">
+        <script src="jquery-2.1.1.min.js"></script>
+
+        <script>
+
+            var pageExecute = {
+            fileContents:"Null",
+
+            init: function () {
+                //console.log('DID I MAKE IT???');
+                $.ajax({
+                    url: "sensorData.txt",
+                    dataType: "text",
+                    async: false,
+                    success: function (data){
+                        pageExecute.fileContents = data;
+                        //console.log('I\'M IN HERE????');
+                    },
+                    failure: function(){
+                        //console.log("Well FcuK");
+                    }
+                    });
+                }
+            };
+            window.onload = function () {
+
+            var dps = []; // dataPoints
+            var dps2 = []; // second set of dataPoints
+
+            var chart = new CanvasJS.Chart("chartContainer", {
+            	title :{
+            		text: "Sensor Data"
+            	},
+                theme: "dark2",
+            	axisY: {
+            		includeZero: true
+            	},
+            	data: [{
+            		type: "line",
+            		dataPoints: dps
+            	},
+                {
+                    type: "line",
+                    dataPoints: dps2
+                }]
+            });
+
+            var xVal = 0;
+            var yVal1 = 0;
+            var yVal2 = 0;
+            var updateInterval = 5000;
+            var dataLength = 5; // number of dataPoints visible at any point
+            var nums = [];
+
+            var updateChart = function (count) {
+            	count = count || 1;
+                pageExecute.init();
+                nums = pageExecute.fileContents.split(',');
+                //console.log('Please help me');
+                //console.log(nums);
+                //console.log('Has teh lord blessed me yet?');
+
+        yVal1 = parseFloat(nums[0]);
+        yVal2 = parseFloat(nums[1]);
+        dps.push({
+            x: xVal,
+            y: yVal1
+        });
+        dps2.push({
+            x: xVal,
+            y: yVal2
+        });
+        //console.log('HELLUURRRR');
+        //console.log(dps[xVal]);
+        xVal++;
+        if (dps.length > dataLength) {
+            dps.shift();
+    	}
+
+        if (dps2.length > dataLength) {
+            dps2.shift();
+    	}
+
+        chart.render();
+    };
+
+    updateChart(dataLength);
+    setInterval(function(){updateChart()}, updateInterval);
+}
+        </script>
+        <!-- <div id="filecontents"> -->
+    </head>
+<body>
+<div id="chartContainer" style="height: 300px; width: 100%;"></div>
+<script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
+</body>
+</html>
