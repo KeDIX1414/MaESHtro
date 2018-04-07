@@ -54,17 +54,31 @@
             var updateInterval = 5000;
             var dataLength = 5; // number of dataPoints visible at any point
             var nums = [];
+            var userInput = -1;
+            var flag = false;
 
             var updateChart = function (count) {
+                flag = false;
             	count = count || 1;
                 pageExecute.init();
-                nums = pageExecute.fileContents.split(',');
+                var lines = pageExecute.fileContents.split('\n&&');
+                if (lines.length == 1) {
+                	nums = pageExecute.fileContents.split(',');
+                }
+                else {
+                    flag = true;
+                	nums = lines[0].split(',');
+                	userInput = lines[1];
+                }
                 //console.log('Please help me');
                 //console.log(nums);
                 //console.log('Has teh lord blessed me yet?');
 
         yVal1 = parseFloat(nums[0]);
         yVal2 = parseFloat(nums[1]);
+        if (flag) {
+            alert("New user input came in. The user said: " + userInput)
+        }
         dps.push({
             x: xVal,
             y: yVal1
