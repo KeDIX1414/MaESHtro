@@ -7,9 +7,8 @@ sock.bind((sys.argv[1], sys.argv[2]))
 sock.connect((sys.argv[3], sys.argv[4]))
 while True:
 	try:
-		time.sleep(3)
-		num = random.randint(0,100)
-		sock.send(str(num).encode())
+		user_input = input()
+		sock.send(user_input.encode())
 	except KeyboardInterrupt:
 		sock.close()
 		sys.exit()
