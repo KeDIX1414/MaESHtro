@@ -49,11 +49,21 @@ class MaestroSocket:
 					print("I have received a new connection")
 				else:
 					try:
-						data = sock.recv(1024)
+						(data,address) = sock.recvfrom(1024)
 						if data:
 							message = data.decode()
 							self.broadcast(sock, data)
-							print(message)
+							#print(message)
+							if (address == '6.6.1.7'):
+								writeFile = open('sensorData.txt', 'w')
+								sData = message + ',0' 
+								writeFile.write(sData);
+								writeFile.close()
+							else:
+								writeFile = open('sensorData.txt', 'r+')
+								sData = "\n&& " + message
+								writeFile.write(sData);
+								writeFile.close()
 						else:
 							sock.close()
 							self.client_list.remove(sock)

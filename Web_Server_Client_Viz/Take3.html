@@ -28,7 +28,7 @@
             window.onload = function () {
 
             var dps = []; // dataPoints
-            var dps2 = []; // second set of dataPoints
+            //var dps2 = []; // second set of dataPoints
 
             var chart = new CanvasJS.Chart("chartContainer", {
             	title :{
@@ -41,38 +41,54 @@
             	data: [{
             		type: "line",
             		dataPoints: dps
-            	},
-                {
-                    type: "line",
-                    dataPoints: dps2
-                }]
+            	}
+                //,
+                // {
+                //     type: "line",
+                //     dataPoints: dps2
+                // }
+                ]
             });
 
             var xVal = 0;
             var yVal1 = 0;
-            var yVal2 = 0;
+            //var yVal2 = 0;
             var updateInterval = 5000;
             var dataLength = 5; // number of dataPoints visible at any point
             var nums = [];
+            var userInput = -1;
+            var flag = false;
 
             var updateChart = function (count) {
+                flag = false;
             	count = count || 1;
                 pageExecute.init();
-                nums = pageExecute.fileContents.split(',');
+                var lines = pageExecute.fileContents.split('\n&&');
+                if (lines.length == 1) {
+                	nums = pageExecute.fileContents.split(',');
+                }
+                else {
+                    flag = true;
+                	nums = lines[0].split(',');
+                	userInput = lines[1];
+                }
                 //console.log('Please help me');
                 //console.log(nums);
                 //console.log('Has teh lord blessed me yet?');
 
         yVal1 = parseFloat(nums[0]);
-        yVal2 = parseFloat(nums[1]);
+       // yVal2 = parseFloat(nums[1]);
+        if (flag) {
+            alert("New user input came in. The user said: " + userInput)
+        }
         dps.push({
             x: xVal,
             y: yVal1
         });
-        dps2.push({
-            x: xVal,
-            y: yVal2
-        });
+        // dps2.push({
+        //     x: xVal,
+        //     y: yVal2
+        // });
         //console.log('HELLUURRRR');
         //console.log(dps[xVal]);
         xVal++;
@@ -80,9 +96,9 @@
             dps.shift();
     	}
 
-        if (dps2.length > dataLength) {
-            dps2.shift();
-    	}
+     //    if (dps2.length > dataLength) {
+     //        dps2.shift();
+    	// }
 
         chart.render();
     };
