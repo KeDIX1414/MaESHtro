@@ -1,7 +1,6 @@
 import socket
 import select
 import sys
-from user import User
 
 class MaestroSocket:
 	def __init__(self, ip, port, server=False, username="KeDIX1414"):
@@ -49,21 +48,24 @@ class MaestroSocket:
 					print("I have received a new connection")
 				else:
 					try:
-						(data,address) = sock.recvfrom(1024)
+						data = sock.recv(1024)
+						address = sock.getpeername()
+						print(address)
 						if data:
 							message = data.decode()
 							self.broadcast(sock, data)
-							#print(message)
-							if (address == '6.6.1.7'):
-								writeFile = open('sensorData.txt', 'w')
-								sData = message + ',0' 
-								writeFile.write(sData);
-								writeFile.close()
-							else:
+							print(message)
+							#if (address == '6.6.1.6'):
+							writeFile = open('sensorData.txt', 'w')
+							sData = message + ',0' 
+							writeFile.write(sData);
+							writeFile.close()
+							'''else:
+								print(address)
 								writeFile = open('sensorData.txt', 'r+')
 								sData = "\n&& " + message
 								writeFile.write(sData);
-								writeFile.close()
+								writeFile.close()'''
 						else:
 							sock.close()
 							self.client_list.remove(sock)
