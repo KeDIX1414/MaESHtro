@@ -9,7 +9,8 @@ while True:
 	try:
 		time.sleep(3)
 		num = random.randint(0,100)
-		sock.send(str(num).encode())
+		msg = 'rand:' + str(num)
+		sock.send(msg.encode())
 	except KeyboardInterrupt:
 		sock.close()
 		sys.exit()

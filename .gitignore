@@ -2,3 +2,5 @@
 *.out
 *.pcap
 *.pyc
+/Web_Server_Client_Viz/EarlyAttempts
+/bash setup scripts/PingTestLaptop.sh

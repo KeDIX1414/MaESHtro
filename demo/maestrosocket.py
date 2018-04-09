@@ -7,6 +7,7 @@ class MaestroSocket:
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		# self.sock.setblocking(0)
 		if server:
+			print(ip + str(port))
 			self.sock.bind((ip, port))
 			self.sock.listen(1)
 			print(self.sock.getsockname())
@@ -49,23 +50,21 @@ class MaestroSocket:
 				else:
 					try:
 						data = sock.recv(1024)
-						address = sock.getpeername()
-						print(address)
 						if data:
 							message = data.decode()
 							self.broadcast(sock, data)
-							print(message)
-							#if (address == '6.6.1.6'):
-							writeFile = open('sensorData.txt', 'w')
-							sData = message + ',0' 
-							writeFile.write(sData);
-							writeFile.close()
-							'''else:
-								print(address)
-								writeFile = open('sensorData.txt', 'r+')
+							#print(message)
+							if 'rand:' in message:
+								message = message[5:]
+								writeFile = open('sensorData.txt', 'w')
+								sData = message + ',0' 
+								writeFile.write(sData);
+								writeFile.close()
+							else:
+								writeFile = open('sensorData.txt', 'w')
 								sData = "\n&& " + message
 								writeFile.write(sData);
-								writeFile.close()'''
+								writeFile.close()
 						else:
 							sock.close()
 							self.client_list.remove(sock)
